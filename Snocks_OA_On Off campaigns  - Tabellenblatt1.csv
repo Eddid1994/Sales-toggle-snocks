@@ -1,0 +1,23 @@
+Brand,campaign type,campaign name,asset group name on saturday 23:00,asset group name off saturday 23:00,on saturday 23:00,off monday 23:00
+SNOCKS NL,Demand Gen,[Demand_Gen]_NL_Sales_Discover,no,- (no evergreen full assets on),campaign on,campaign off
+SNOCKS FR,Demand Gen,[Demand_Gen]_FR_Sales_Discover,no,- (no evergreen full assets on),campaign on,campaign off
+,,,,,,
+,,,,,,
+SNOCKS DE AT,PMax,[Performance Max]_Generic_DE_[Socken][Sneaker Socken],Sales Events Invisibles,- (no evergreen full assets on),asset group on,asset group off
+SNOCKS DE AT,PMax,[Performance Max]_Generic_DE_[Socken][Sneaker Socken],Sales Event Ankle,- (no evergreen full assets on),asset group on,asset group off
+SNOCKS DE AT,PMax,[Performance Max]_Generic_DE_[Socken][Business Socken],Sales Event Business-Socken,- (no evergreen full assets on),asset group on,asset group off
+SNOCKS DE AT,PMax,[Performance Max]_Generic_DE_[Damen][Leggings],Sales Event High Waist Leggings,- (no evergreen full assets on),asset group on,asset group off
+SNOCKS DE AT,PMax,[Performance Max]_Generic_DE_[Socken][Tennissocken],Sales Event Tennissocken,- (no evergreen full assets on),asset group on,asset group off
+SNOCKS DE AT,Demand Gen,[Demand Gen]_DE_Damen_Sale_ugc,,,campaign on,campaign off
+SNOCKS DE AT,Demand Gen,[Demand Gen]_DE_Herren_Sale_ugc,,,campaign on,campaign off
+SNOCKS DE AT,Demand Gen,[Discovery]_DE_Discovery_Herren_Sale,,,campaign on,campaign off
+SNOCKS DE AT,Demand Gen,[Discovery]_DE_Discovery_Damen_Sale,,,campaign on,campaign off
+SNOCKS CH,PMax,SN_Performance Max_CH_UND_Boxershorts,SALE Boxershorts - Full Build,- (no evergreen full assets on),asset group on,asset group off
+SNOCKS CH,PMax,SN_Performance Max_CH_UND_Boxershorts_Long,SALE Boxershorts - Full Build,- (no evergreen full assets on),asset group on,asset group off
+,,,,,,
+OCEANSAPART FR,PMax,FR_Performance Max | Sales [Generic],[Sale BFCM25],- (no evergreen full assets on),campaign on,campaign off
+OCEANSAPART IT,PMax,IT_Performance Max | Sales [Generic],[Sale BFCM25],- (no evergreen full assets on),campaign on,campaign off
+OCEANSAPART PL,PMax,PL_Performance Max | Sales [Generic],[Sale BFCM25],- (no evergreen full assets on),campaign on,campaign off
+OCEANSAPART EU,PMax,,,,,
+OCEANSAPART DE AT,PMax,OA_Performance Max_DE_AT_Sets,Sale Event - Sport Sets,[Sport Sets] non-sale,asset group on and off,asset group on and off
+OCEANSAPART CH,PMax,OA_Performance Max_CH_[Leggings],Sale Event - Leggings,[Leggings] non-sale,asset group on and off,asset group on and off

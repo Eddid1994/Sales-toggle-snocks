@@ -20,5 +20,5 @@ export const API_VERSION = 'v17'; // Or v16/v18 depending on stability. JSON use
 // Actually, JSON used v20: https://googleads.googleapis.com/v20/...
 // Let's stick to v17 for stability unless v20 is required. PMax and DemandGen are supported in v17.
 // Wait, DemandGen is newer. Let's use v18 or v19.
-export const GOOGLE_ADS_API_VERSION = 'v18'; 
+export const GOOGLE_ADS_API_VERSION = 'v20'; 
 

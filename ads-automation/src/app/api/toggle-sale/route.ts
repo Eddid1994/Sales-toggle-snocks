@@ -17,10 +17,54 @@ interface AccountResult {
   demandGenChanges: number;
   pmaxOperations: Operation[];
   demandGenOperations: Operation[];
+  proposedChanges: {
+    type: 'PMax' | 'Demand Gen';
+    name: string;
+    from: string;
+    to: string;
+    campaignName?: string;
+  }[];
   errors?: string[];
 }
 
 export const dynamic = 'force-dynamic'; // Ensure it's not cached
+
+// Define specific targets based on the CSV provided
+const SALE_TARGETS = [
+  // DE/AT PMax
+  'Sales Events Invisibles',
+  'Sales Event Ankle',
+  'Sales Event Business-Socken',
+  'Sales Event High Waist Leggings',
+  'Sales Event Tennissocken',
+  // CH PMax
+  'SALE Boxershorts - Full Build',
+  'Sale Event - Leggings',
+  // FR, IT, PL PMax
+  'Sale BFCM25',
+  // DE/AT PMax (OceansApart)
+  'Sale Event - Sport Sets'
+];
+
+const NON_SALE_TARGETS = [
+  // DE/AT PMax - Evergreen counterparts
+  '[Socken][Sneaker Socken]', // Implicitly targeted by NOT being in the sale list if we flip logic?
+  // Better to be explicit if possible, but the request says "asset group name off saturday 23:00" is "- (no evergreen full assets on)" for most.
+  // EXCEPT for OceansApart DE AT: "[Sport Sets] non-sale"
+  // and OceansApart CH: "[Leggings] non-sale"
+  '[Sport Sets] non-sale',
+  '[Leggings] non-sale'
+];
+
+// Demand Gen Campaigns to toggle
+const DEMAND_GEN_CAMPAIGNS = [
+  '[Demand_Gen]_NL_Sales_Discover',
+  '[Demand_Gen]_FR_Sales_Discover',
+  '[Demand Gen]_DE_Damen_Sale_ugc',
+  '[Demand Gen]_DE_Herren_Sale_ugc',
+  '[Discovery]_DE_Discovery_Herren_Sale',
+  '[Discovery]_DE_Discovery_Damen_Sale'
+];
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -62,6 +106,7 @@ export async function GET(request: Request) {
       demandGenChanges: 0,
       pmaxOperations: [],
       demandGenOperations: [],
+      proposedChanges: [],
       errors: []
     };
 
@@ -81,24 +126,34 @@ export async function GET(request: Request) {
         const ag = row.assetGroup;
         const name = ag.name;
         const status = ag.status; // 'ENABLED' or 'PAUSED'
-        const isSale = name.toLowerCase().includes('sale');
         
+        // Logic based on CSV Targets
+        const isSaleAsset = SALE_TARGETS.some(target => name === target || name.includes(target));
+        const isNonSaleTarget = NON_SALE_TARGETS.some(target => name === target || name.includes(target));
+
         let newStatus = '';
         let shouldChange = false;
 
         if (mode === 'start') {
-          if (isSale && status === 'PAUSED') {
+          // START SALE: Enable Sale Assets, Pause Specific Non-Sale Assets (if any defined)
+          if (isSaleAsset && status === 'PAUSED') {
             shouldChange = true;
             newStatus = 'ENABLED';
-          } else if (!isSale && status === 'ENABLED') {
+          } else if (isNonSaleTarget && status === 'ENABLED') {
+             // Only pause specific non-sale targets defined in the CSV (like [Sport Sets] non-sale)
+             // The CSV says "- (no evergreen full assets on)" for most, implying we don't touch others?
+             // OR does it mean we should pause EVERYTHING else? 
+             // The prompt says: "It's important that just these ones are changing"
+             // So we only touch items explicitly matched.
             shouldChange = true;
             newStatus = 'PAUSED';
           }
         } else { // mode === 'end'
-          if (isSale && status === 'ENABLED') {
+          // END SALE: Pause Sale Assets, Enable Specific Non-Sale Assets
+          if (isSaleAsset && status === 'ENABLED') {
             shouldChange = true;
             newStatus = 'PAUSED';
-          } else if (!isSale && status === 'PAUSED') {
+          } else if (isNonSaleTarget && status === 'PAUSED') {
             shouldChange = true;
             newStatus = 'ENABLED';
           }
@@ -108,6 +163,13 @@ export async function GET(request: Request) {
           accountResult.pmaxOperations.push({
             update: { resourceName: ag.resourceName, status: newStatus },
             updateMask: 'status'
+          });
+          accountResult.proposedChanges.push({
+            type: 'PMax',
+            name: name,
+            campaignName: row.campaign.name,
+            from: status,
+            to: newStatus
           });
         }
       }
@@ -126,26 +188,24 @@ export async function GET(request: Request) {
         const camp = row.campaign;
         const name = camp.name;
         const status = camp.status;
-        const isSale = name.toLowerCase().includes('sale');
-
+        
+        // Logic based on CSV Targets
+        const isSaleCampaign = DEMAND_GEN_CAMPAIGNS.some(target => name === target || name.includes(target));
+        
         let newStatus = '';
         let shouldChange = false;
 
         if (mode === 'start') {
-          if (isSale && status === 'PAUSED') {
+          if (isSaleCampaign && status === 'PAUSED') {
             shouldChange = true;
             newStatus = 'ENABLED';
-          } else if (!isSale && status === 'ENABLED') {
-            shouldChange = true;
-            newStatus = 'PAUSED';
           }
+          // CSV shows "campaign off" for off-sale, which means we pause them.
+          // It doesn't list specific "non-sale" campaigns to enable, so we likely just toggle these specific ones.
         } else { // mode === 'end'
-          if (isSale && status === 'ENABLED') {
+          if (isSaleCampaign && status === 'ENABLED') {
             shouldChange = true;
             newStatus = 'PAUSED';
-          } else if (!isSale && status === 'PAUSED') {
-            shouldChange = true;
-            newStatus = 'ENABLED';
           }
         }
 
@@ -153,6 +213,12 @@ export async function GET(request: Request) {
           accountResult.demandGenOperations.push({
             update: { resourceName: camp.resourceName, status: newStatus },
             updateMask: 'status'
+          });
+          accountResult.proposedChanges.push({
+            type: 'Demand Gen',
+            name: name,
+            from: status,
+            to: newStatus
           });
         }
       }
