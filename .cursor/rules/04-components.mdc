@@ -1,0 +1,118 @@
+---
+description: 
+globs: components/*.tsx,app/**/*.tsx,**/components/**/*.tsx
+alwaysApply: false
+---
+---
+description: Component architecture, organization, and best practices for React components
+globs: **/components/**/*.tsx, **/components/**/*.jsx, **/_components/**/*.tsx, **/_components/**/*.jsx
+---
+
+# Component Guidelines
+
+- Define reusable components in the components folder; page-specific components can live in page folders
+- Prioritize component reuse across the project (DRY principle)
+- Use Shadcn UI for base components
+- Keep custom components simple, elegant and easy to understand
+- Report redundantly defined components
+- Favor named exports for components
+- Follow a modular approach as the project grows
+- For Next.js specific patterns (Server Components, App Router), see 07-nextjs.mdc
+
+## Component Architecture
+- Keep components small and focused on a single responsibility
+- Extract reusable logic into custom hooks
+- Use composition over inheritance
+- Implement proper TypeScript interfaces for props
+- Split large components into smaller, focused ones
+
+## State Management
+- Use useState for local component state
+- Implement useReducer for complex state logic
+- Use Context API for shared state sparingly
+- Keep state as close to where it's used as possible
+- Avoid prop drilling through proper state management
+- Prefer server state when possible with Next.js
+
+## Performance
+- Implement proper memoization (useMemo, useCallback)
+- Use React.memo for expensive components
+- Avoid unnecessary re-renders
+- Implement proper lazy loading with Suspense
+- Use proper key props in lists
+- Profile and optimize render performance
+
+## Forms and Inputs
+- Use controlled components for form inputs
+- Implement proper form validation with Zod
+- Handle form submission states properly
+- Show appropriate loading and error states
+- Use form libraries for complex forms
+- Implement proper accessibility for forms
+
+## Error Handling
+- Implement Error Boundaries
+- Handle async errors properly
+- Show user-friendly error messages
+- Implement proper fallback UI
+- Log errors appropriately
+- Handle edge cases gracefully
+
+## Accessibility
+- Use semantic HTML elements
+- Implement proper ARIA attributes
+- Ensure keyboard navigation
+- Test with screen readers
+- Handle focus management
+- Provide proper alt text for images
+
+## Component Organization
+
+- Generic UI components should live in components/ui/
+- Feature-specific components should be organized in appropriate subdirectories
+- Private components used only in specific pages can live in _components within page directories
+- Shared components should be in the components folder for reuse across features
+
+
+## Component Rules:
+{
+  "rules": [
+    {
+      "name": "import-order",
+      "globs": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"],
+      "config": {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "object", "type"],
+        "pathGroups": [
+          { "pattern": "react", "group": "external", "position": "before" },
+          { "pattern": "next/**", "group": "external", "position": "before" },
+          { "pattern": "lucide-react", "group": "external", "position": "before" },
+          { "pattern": "@/**", "group": "internal" }
+        ],
+        "pathGroupsExcludedImportTypes": ["react"],
+        "newlinesBetween": "always",
+        "alphabetize": { "order": "asc", "caseInsensitive": true }
+      }
+    },
+    {
+      "name": "no-unused-vars",
+      "globs": ["**/*.ts", "**/*.tsx"],
+      "config": {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    }
+  ]
+}
+
+{
+  "name": "typescript-strictness",
+  "globs": ["**/*.ts", "**/*.tsx"],
+  "config": {
+    "noExplicitAny": true,
+    "preferTablesHelpers": true
+  },
+  "hints": [
+    "Use TablesInsert<'table'> and Tables<'table'> over any",
+    "Replace catch (e: any) with catch (e: unknown)"
+  ]
+}

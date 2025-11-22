@@ -1,0 +1,36 @@
+---
+description: Next.js (App Router) + Supabase + Vercel implementation guidance.
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+# Next.js Guidelines
+
+## Rendering & Structure
+- Prefer **Server Components**; mark client components explicitly with `use client`.
+- Keep components small; colocate feature code; share primitives in `src/components` and utilities in `src/lib`.
+
+## Data & Mutations
+- **Fetch on the server** by default. Stream where helpful; provide `loading.tsx` (Suspense) + `error.tsx`.
+- **Server Actions**: validate inputs (using Zustand), re-check auth/authorization on the server. Treat action args as untrusted.
+
+## Supabase in App Router
+- Use **`@supabase/ssr`**. Follow the official cookie pattern: **only** `cookies.getAll()` / `cookies.setAll()`.
+- **Never** import from `@supabase/auth-helpers-nextjs`. **Never** implement custom `cookies.get/set/remove` helpers.
+- Client reads are fine under **RLS**. **All writes** go through Server Actions or route handlers, optionally using `service_role` on the server only.
+
+## Type Safety
+- **TypeScript & Quality**
+  - `strict` on; avoid `any`; model API/DB payloads precisely.
+  - Keep files **< 800 LOC**; split when larger.
+
+## Performance
+- STRIVE TO WRITE HIGHLY PERFORMANT CODE
+  - Use `<Image>` for images; dynamically import heavy UI; memoize only when profiling shows benefit.
+
+
+## Code File Style
+- Keep files **< 800 LOC**; split when larger.
+- Very briefly document non-obvious logic inline (JSDoc). 
+
+## Documentation
+Reminder: The documentation of the modules of our app in `docs/` needs to be constantly updated whenever there is a change regarding something relevant for the functionality of the app as a whole!

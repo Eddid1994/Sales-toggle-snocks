@@ -1,0 +1,369 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+### Database Structure:
+-- WARNING: This schema is for context only and is not meant to be run. 
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.audit_log (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  table_name text NOT NULL,
+  record_id uuid NOT NULL,
+  action text NOT NULL CHECK (action = ANY (ARRAY['INSERT'::text, 'UPDATE'::text, 'DELETE'::text])),
+  old_values jsonb,
+  new_values jsonb,
+  changed_by uuid,
+  changed_at timestamp with time zone NOT NULL DEFAULT now(),
+  activity_type text,
+  description text,
+  related_entity_type text,
+  related_entity_id uuid,
+  CONSTRAINT audit_log_pkey PRIMARY KEY (id),
+  CONSTRAINT audit_log_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.brand_project (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  service_type text NOT NULL CHECK (service_type = ANY (ARRAY['full_service'::text, 'strategy_service'::text])),
+  monthly_budget_cents integer,
+  expected_revenue_per_month_cents integer,
+  roas_target_per_month numeric CHECK (roas_target_per_month IS NULL OR roas_target_per_month >= 0::numeric),
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  modified_by uuid,
+  CONSTRAINT brand_project_pkey PRIMARY KEY (id),
+  CONSTRAINT brand_project_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT brand_project_modified_by_fkey FOREIGN KEY (modified_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.brands (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  website text CHECK (website IS NULL OR website ~* '^https?://[^\s/$.?#].[^\s]*$'::text),
+  nische text,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  collaboration_start_date date,
+  collaboration_end_date date,
+  collaboration_status text,
+  CONSTRAINT brands_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.brands_contacts (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  name text NOT NULL,
+  email text CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text),
+  phone text CHECK (phone IS NULL OR phone ~ '^\+?[0-9\s\-\(\)]{7,20}$'::text),
+  position text,
+  is_primary boolean DEFAULT false,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  modified_by uuid,
+  CONSTRAINT brands_contacts_pkey PRIMARY KEY (id),
+  CONSTRAINT brand_contacts_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT brand_contacts_modified_by_fkey FOREIGN KEY (modified_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.channels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  display_name text NOT NULL,
+  icon text,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT channels_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.deliverable_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  deliverable_id uuid NOT NULL,
+  metric_id uuid NOT NULL,
+  metric_value numeric,
+  measured_at timestamp with time zone DEFAULT now(),
+  is_final boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT deliverable_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT deliverable_metrics_values_metric_id_fkey FOREIGN KEY (metric_id) REFERENCES public.deliverables_metrics_glossary(id),
+  CONSTRAINT deliverable_metrics_values_deliverable_id_fkey FOREIGN KEY (deliverable_id) REFERENCES public.engagements_deliverables(id)
+);
+CREATE TABLE public.deliverables_metrics_glossary (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  metric_name text NOT NULL UNIQUE,
+  metric_type text NOT NULL CHECK (metric_type = ANY (ARRAY['integer'::text, 'decimal'::text, 'percentage'::text, 'currency'::text])),
+  description text,
+  unit text,
+  is_active boolean DEFAULT true,
+  display_order integer,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT deliverables_metrics_glossary_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.engagements (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  brand_id uuid NOT NULL,
+  influencer_id uuid NOT NULL,
+  period_year integer NOT NULL,
+  period_month integer NOT NULL CHECK (period_month >= 1 AND period_month <= 12),
+  opened_at timestamp with time zone DEFAULT now(),
+  closed_at timestamp with time zone,
+  status text NOT NULL DEFAULT 'negotiating'::text CHECK (status = ANY (ARRAY['negotiating'::text, 'agreed'::text, 'active'::text, 'completed'::text, 'cancelled'::text, 'paused'::text])),
+  agreed_total_cents integer,
+  agreed_currency character DEFAULT 'EUR'::bpchar,
+  payment_terms text,
+  contract_status text CHECK (contract_status = ANY (ARRAY['draft'::text, 'sent'::text, 'signed'::text, 'expired'::text])),
+  contract_signed_at timestamp with time zone,
+  contract_url text,
+  tags ARRAY,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  campaign_name text,
+  modified_by uuid,
+  period_date date,
+  channel_id uuid,
+  CONSTRAINT engagements_pkey PRIMARY KEY (id),
+  CONSTRAINT engagements_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT engagements_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channels(id),
+  CONSTRAINT engagements_modified_by_fkey FOREIGN KEY (modified_by) REFERENCES public.profiles(id),
+  CONSTRAINT engagements_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT engagements_influencer_id_fkey FOREIGN KEY (influencer_id) REFERENCES public.influencers(id)
+);
+CREATE TABLE public.engagements_coupon_codes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  code text NOT NULL,
+  brand_id uuid,
+  description text,
+  discount_type text CHECK (discount_type = ANY (ARRAY['percentage'::text, 'fixed'::text, 'free_shipping'::text])),
+  discount_value numeric,
+  valid_from date,
+  valid_until date,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  engagement_id uuid,
+  CONSTRAINT coupon_codes_brand_id_fkey FOREIGN KEY (brand_id) REFERENCES public.brands(id),
+  CONSTRAINT coupon_codes_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id)
+);
+CREATE TABLE public.engagements_deliverables (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  engagement_id uuid NOT NULL,
+  deliverable text NOT NULL CHECK (deliverable = ANY (ARRAY['story'::text, 'post'::text, 'reel'::text, 'video'::text, 'live'::text, 'carousel'::text, 'igtv'::text, 'shorts'::text])),
+  quantity integer DEFAULT 1 CHECK (quantity IS NULL OR quantity > 0),
+  planned_publish_at date,
+  actual_publish_at timestamp with time zone,
+  content_url text CHECK (content_url IS NULL OR content_url ~* '^https?://[^\s/$.?#].[^\s]*$'::text),
+  briefing_sent boolean DEFAULT false,
+  briefing_sent_at timestamp with time zone,
+  content_submitted boolean DEFAULT false,
+  content_submitted_at timestamp with time zone,
+  content_approved boolean DEFAULT false,
+  content_approved_at timestamp with time zone,
+  content_approved_by uuid,
+  product_sent boolean DEFAULT false,
+  product_sent_at timestamp with time zone,
+  promoted_product text,
+  tracking_link text CHECK (tracking_link IS NULL OR tracking_link ~* '^https?://[^\s/$.?#].[^\s]*$'::text),
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  modified_by uuid,
+  CONSTRAINT engagements_deliverables_pkey PRIMARY KEY (id),
+  CONSTRAINT deliverables_modified_by_fkey FOREIGN KEY (modified_by) REFERENCES public.profiles(id),
+  CONSTRAINT deliverables_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id),
+  CONSTRAINT deliverables_content_approved_by_fkey FOREIGN KEY (content_approved_by) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.engagements_invoices (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  engagement_id uuid NOT NULL,
+  number text UNIQUE,
+  amount_cents integer NOT NULL CHECK (amount_cents > 0),
+  currency character DEFAULT 'EUR'::bpchar,
+  issued_at timestamp with time zone,
+  sent_at timestamp with time zone,
+  paid_at timestamp with time zone,
+  due_at timestamp with time zone,
+  status text DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'sent'::text, 'paid'::text, 'overdue'::text, 'cancelled'::text])),
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  modified_by uuid,
+  payment_method text,
+  transaction_reference text,
+  payment_notes text,
+  CONSTRAINT engagements_invoices_pkey PRIMARY KEY (id),
+  CONSTRAINT invoices_modified_by_fkey FOREIGN KEY (modified_by) REFERENCES public.profiles(id),
+  CONSTRAINT invoices_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id)
+);
+CREATE TABLE public.engagements_metrics (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  engagement_id uuid NOT NULL,
+  metric_id uuid NOT NULL,
+  metric_value text,
+  is_current boolean DEFAULT false,
+  snapshot_type text CHECK (snapshot_type = ANY (ARRAY['daily'::text, 'weekly'::text, 'monthly'::text, 'manual'::text])),
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT engagements_metrics_pkey PRIMARY KEY (id),
+  CONSTRAINT engagements_metrics_values_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT engagements_metrics_values_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id),
+  CONSTRAINT engagements_metrics_values_metric_id_fkey FOREIGN KEY (metric_id) REFERENCES public.engagements_metrics_glossary(id)
+);
+CREATE TABLE public.engagements_metrics_glossary (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  metric_name text NOT NULL UNIQUE,
+  metric_category text NOT NULL CHECK (metric_category = ANY (ARRAY['operational'::text, 'strategic'::text, 'financial'::text, 'performance'::text, 'audience'::text])),
+  metric_type text NOT NULL CHECK (metric_type = ANY (ARRAY['integer'::text, 'decimal'::text, 'percentage'::text, 'currency'::text, 'json'::text, 'text'::text])),
+  description text,
+  calculation_method text,
+  unit text,
+  is_active boolean DEFAULT true,
+  display_order integer,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT engagements_metrics_glossary_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.engagements_negotiations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  engagement_id uuid UNIQUE,
+  negotiation_status text,
+  negotiation_priority text,
+  last_contact_date timestamp with time zone,
+  next_follow_up_date timestamp with time zone,
+  primary_channel text,
+  negotiation_data jsonb,
+  negotiation_offers jsonb,
+  communication_history jsonb,
+  messages_sent jsonb,
+  scheduled_messages jsonb,
+  notes text,
+  attached_files jsonb,
+  automation_paused boolean DEFAULT false,
+  reminder_date date,
+  responsible_user_id uuid,
+  responsible_name text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT engagements_negotiations_pkey PRIMARY KEY (id),
+  CONSTRAINT engagements_negotiations_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id),
+  CONSTRAINT engagements_negotiations_responsible_user_id_fkey FOREIGN KEY (responsible_user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.engagements_screenshots (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  engagement_id uuid NOT NULL,
+  title text NOT NULL,
+  description text,
+  screenshot_url text,
+  screenshot_type text CHECK (screenshot_type = ANY (ARRAY['insights'::text, 'reach'::text, 'demographics'::text, 'engagement'::text])),
+  platform text CHECK (platform = ANY (ARRAY['instagram'::text, 'tiktok'::text, 'youtube'::text, 'facebook'::text, 'linkedin'::text])),
+  metrics_data jsonb,
+  uploaded_at timestamp with time zone DEFAULT now(),
+  uploaded_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  screenshot_base64 text,
+  CONSTRAINT engagements_screenshots_pkey PRIMARY KEY (id),
+  CONSTRAINT engagement_screenshots_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.profiles(id),
+  CONSTRAINT engagement_screenshots_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id)
+);
+CREATE TABLE public.engagements_tasks (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  engagement_id uuid NOT NULL,
+  type text NOT NULL CHECK (type = ANY (ARRAY['followup'::text, 'reminder'::text, 'content_review'::text, 'payment'::text, 'product_shipment'::text])),
+  title text NOT NULL,
+  description text,
+  due_at timestamp with time zone NOT NULL,
+  completed_at timestamp with time zone,
+  completed_by uuid,
+  assignee_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT engagements_tasks_pkey PRIMARY KEY (id),
+  CONSTRAINT engagement_tasks_assignee_fkey FOREIGN KEY (assignee_id) REFERENCES public.profiles(id),
+  CONSTRAINT engagement_tasks_engagement_id_fkey FOREIGN KEY (engagement_id) REFERENCES public.engagements(id),
+  CONSTRAINT engagement_tasks_completed_by_fkey FOREIGN KEY (completed_by) REFERENCES public.profiles(id),
+  CONSTRAINT engagement_tasks_assignee_id_fkey FOREIGN KEY (assignee_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.influencer_channels (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  influencer_id uuid NOT NULL,
+  channel_id uuid NOT NULL,
+  handle text NOT NULL,
+  is_primary boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT influencer_channels_pkey PRIMARY KEY (id),
+  CONSTRAINT influencer_channels_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channels(id),
+  CONSTRAINT influencer_channels_influencer_id_fkey FOREIGN KEY (influencer_id) REFERENCES public.influencers(id)
+);
+CREATE TABLE public.influencers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  email text CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'::text),
+  phone text CHECK (phone IS NULL OR phone ~ '^\+?[0-9\s\-\(\)]{7,20}$'::text),
+  niche ARRAY,
+  status text DEFAULT 'new'::text CHECK (status = ANY (ARRAY['new'::text, 'contacted'::text, 'negotiating'::text, 'active'::text, 'inactive'::text, 'rejected'::text])),
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  is_collaborated boolean DEFAULT false,
+  responsible_user_id uuid,
+  gender text CHECK (gender IS NULL OR (gender = ANY (ARRAY['MALE'::text, 'FEMALE'::text, 'DIV'::text]))),
+  dob date,
+  country text,
+  CONSTRAINT influencers_pkey PRIMARY KEY (id),
+  CONSTRAINT influencers_responsible_user_fkey FOREIGN KEY (responsible_user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.influencers_details (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  influencer_id uuid NOT NULL,
+  channel_id uuid NOT NULL,
+  is_verified boolean DEFAULT false,
+  is_primary boolean DEFAULT false,
+  metric_name text NOT NULL,
+  metric_value text,
+  last_updated timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT influencers_details_pkey PRIMARY KEY (id),
+  CONSTRAINT influencers_details_influencer_id_fkey FOREIGN KEY (influencer_id) REFERENCES public.influencers(id),
+  CONSTRAINT influencers_details_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.channels(id),
+  CONSTRAINT influencers_details_metric_name_fkey FOREIGN KEY (metric_name) REFERENCES public.influencers_details_glossary(metric_name)
+);
+CREATE TABLE public.influencers_details_glossary (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  metric_name text NOT NULL UNIQUE,
+  display_name text NOT NULL,
+  description text,
+  data_type text CHECK (data_type = ANY (ARRAY['number'::text, 'text'::text, 'boolean'::text, 'date'::text, 'url'::text])),
+  is_required boolean DEFAULT false,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT influencers_details_glossary_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  email text NOT NULL UNIQUE,
+  full_name text,
+  role text DEFAULT 'viewer'::text CHECK (role = ANY (ARRAY['admin'::text, 'manager'::text, 'viewer'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.templates_outreach (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  subject text NOT NULL,
+  content text NOT NULL,
+  template_type text NOT NULL CHECK (template_type = ANY (ARRAY['initial_outreach'::text, 'follow_up'::text, 'offer'::text, 'decline'::text, 'agreement'::text])),
+  variables jsonb DEFAULT '[]'::jsonb,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT templates_outreach_pkey PRIMARY KEY (id),
+  CONSTRAINT outreach_templates_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);

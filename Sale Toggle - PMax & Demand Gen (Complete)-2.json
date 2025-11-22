@@ -1,0 +1,733 @@
+{
+  "name": "Sale Toggle - PMax & Demand Gen (Complete)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * 6"
+            }
+          ]
+        }
+      },
+      "id": "3c99a7ad-459d-4fe9-817a-6d6152384d66",
+      "name": "Saturday 23:00 - Start Sale",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        144
+      ],
+      "notes": "Activates sale campaigns/asset groups every Saturday at 23:00"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "2e8986a5-f82b-45b5-8c47-4bcb84d7484b",
+      "name": "Monday 23:00 - End Sale",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        336
+      ],
+      "notes": "Deactivates sale campaigns/asset groups every Monday at 23:00"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mode-start",
+              "name": "saleMode",
+              "value": "start",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "19dc2bd5-22c4-46dd-bc02-011c9de1e33b",
+      "name": "Set Mode - Start",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mode-end",
+              "name": "saleMode",
+              "value": "end",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "22e90eb9-ccd8-4559-90ef-cf782ed9b3e8",
+      "name": "Set Mode - End",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔧 CONFIGURATION SETTINGS\n// ═══════════════════════════════════════════════════════════════\n\n// ⚠️  DRY RUN MODE: Set to true for testing, false for production\n// When true: Shows what would change, makes NO actual changes\n// When false: Makes REAL changes to Google Ads campaigns\nconst DRY_RUN = true;\n\n// Account Configuration\nconst accounts = [\n  { id: '6863838107', country: 'DE', name: 'Germany' },\n  { id: '1593605425', country: 'PL', name: 'Poland' },\n  { id: '7052478378', country: 'FR', name: 'France' },\n  { id: '4570652903', country: 'IT', name: 'Italy' },\n  { id: '7585673823', country: 'NL', name: 'Netherlands' }\n  // Switzerland temporarily removed - will add back after verifying correct account ID\n];\n\n// Google Ads API Credentials\nconst mccId = '3963045378';\nconst developerToken = '93VIU4ehzkRJ4tXBqdiHeg';\n\n// ═══════════════════════════════════════════════════════════════\n\nconst saleMode = $input.first().json.saleMode;\n\nconsole.log('\\n╔═══════════════════════════════════════════════════════════╗');\nconsole.log('║        Sale Toggle - PMax & Demand Gen                  ║');\nconsole.log('╠═══════════════════════════════════════════════════════════╣');\nconsole.log(`║ Mode: ${(saleMode === 'start' ? '🔥 START SALE (Sat 23:00)' : '✅ END SALE (Mon 23:00)').padEnd(48)} ║`);\nconsole.log(`║ Dry Run: ${(DRY_RUN ? '✅ YES (Safe Mode)' : '⚠️  NO (LIVE MODE)').padEnd(45)} ║`);\nconsole.log('╚═══════════════════════════════════════════════════════════╝');\n\nif (DRY_RUN) {\n  console.log('\\n🛡️  DRY RUN ACTIVE: No changes will be made to Google Ads');\n  console.log('   This execution will only show what WOULD happen.\\n');\n} else {\n  console.log('\\n⚠️  LIVE MODE: Real changes will be applied to Google Ads!');\n  console.log('   Make sure you have tested in dry run mode first.\\n');\n}\n\nreturn accounts.map(account => ({\n  json: {\n    mccId,\n    developerToken,\n    dryRun: DRY_RUN,\n    saleMode,\n    customerId: account.id,\n    accountCountry: account.country,\n    accountName: account.name\n  }\n}));"
+      },
+      "id": "1a91ab90-61e9-488f-bc9a-50fff4c69af7",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3fc5eec6-0250-43ec-8ad1-f1a10c67dfd0",
+      "name": "Loop Over Countries",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2000,
+        240
+      ],
+      "notes": "Process each country sequentially to ensure all data flows properly"
+    },
+    {
+      "parameters": {},
+      "id": "af96632b-df6d-4700-961b-70a991028030",
+      "name": "Duplicate for Both Paths",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        752
+      ],
+      "notes": "Ensures current country goes to BOTH PMax and Demand Gen paths"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.customerId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT asset_group.id, asset_group.name, asset_group.status, asset_group.resource_name, campaign.id, campaign.name, campaign.status FROM asset_group WHERE campaign.advertising_channel_type = 'PERFORMANCE_MAX' AND campaign.status = 'ENABLED' AND asset_group.status IN ('ENABLED', 'PAUSED') ORDER BY campaign.name, asset_group.name\"\n}",
+        "options": {}
+      },
+      "id": "36c240d4-c890-4196-a9f0-fdabc85c2894",
+      "name": "Get PMax Asset Groups",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        656,
+        48
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "3330153c-2215-4f6e-843b-24c018ea15a0",
+      "name": "Split PMax Results",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        880,
+        48
+      ],
+      "notes": "Splits batched HTTP results into individual items (one per country)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.customerId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, campaign.name, campaign.status, campaign.resource_name FROM campaign WHERE campaign.advertising_channel_type = 'DEMAND_GEN' AND campaign.status != 'REMOVED' ORDER BY campaign.name\"\n}",
+        "options": {}
+      },
+      "id": "392a352a-3c8d-44ba-bba9-f8049e4ed3bd",
+      "name": "Get Demand Gen Campaigns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        656,
+        432
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c5c34196-98f9-4c7d-ad11-ca981b4c1488",
+      "name": "Split Demand Gen Results",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        880,
+        432
+      ],
+      "notes": "Splits batched HTTP results into individual items (one per country)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const saleMode = $json.saleMode;\nconst dryRun = $json.dryRun;\nconst customerId = $json.customerId;\nconst accountCountry = $json.accountCountry;\nconst assetGroups = $json.results || [];\n\nconsole.log(`\\n=== PMax Asset Groups: ${accountCountry} ===`);\nconsole.log(`Total found: ${assetGroups.length}`);\n\nconst operations = [];\nlet saleFound = 0, standardFound = 0, changed = 0, skipped = 0;\n\nfor (const row of assetGroups) {\n  const ag = row.assetGroup;\n  const name = ag.name;\n  const status = ag.status;\n  const resourceName = ag.resourceName;\n  const isSale = name.toLowerCase().includes('sale');\n  \n  isSale ? saleFound++ : standardFound++;\n  \n  let shouldChange = false;\n  let newStatus = '';\n  \n  if (saleMode === 'start') {\n    if (isSale && status === 'PAUSED') { \n      shouldChange = true; \n      newStatus = 'ENABLED'; \n    } else if (!isSale && status === 'ENABLED') { \n      shouldChange = true; \n      newStatus = 'PAUSED'; \n    }\n  } else {\n    if (isSale && status === 'ENABLED') { \n      shouldChange = true; \n      newStatus = 'PAUSED'; \n    } else if (!isSale && status === 'PAUSED') { \n      shouldChange = true; \n      newStatus = 'ENABLED'; \n    }\n  }\n  \n  if (shouldChange) {\n    console.log(`  ${isSale ? '🔥' : '📦'} ${name}: ${status} → ${newStatus}`);\n    changed++;\n    operations.push({\n      update: { resourceName, status: newStatus },\n      updateMask: 'status'\n    });\n  } else {\n    skipped++;\n  }\n}\n\nconsole.log(`Summary: ${changed} changes, ${skipped} already correct`);\n\nreturn [{ \n  json: { \n    type: 'pmax',\n    customerId, \n    accountCountry, \n    operations, \n    changesCount: operations.length, \n    saleFound,\n    standardFound,\n    skippedCount: skipped,\n    dryRun, \n    saleMode, \n    mccId: $json.mccId, \n    developerToken: $json.developerToken \n  } \n}];"
+      },
+      "id": "24ceb6bb-c5c1-44e3-80af-5d31ae55a914",
+      "name": "Process PMax Asset Groups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const saleMode = $json.saleMode;\nconst dryRun = $json.dryRun;\nconst customerId = $json.customerId;\nconst accountCountry = $json.accountCountry;\nconst campaigns = $json.results || [];\n\nconsole.log(`\\n=== Demand Gen Campaigns: ${accountCountry} ===`);\nconsole.log(`Total found: ${campaigns.length}`);\n\nconst operations = [];\nlet saleFound = 0, standardFound = 0, changed = 0, skipped = 0;\n\nfor (const row of campaigns) {\n  const campaign = row.campaign;\n  const name = campaign.name;\n  const status = campaign.status;\n  const resourceName = campaign.resourceName;\n  const isSale = name.toLowerCase().includes('sale');\n  \n  isSale ? saleFound++ : standardFound++;\n  \n  let shouldChange = false;\n  let newStatus = '';\n  \n  if (saleMode === 'start') {\n    if (isSale && status === 'PAUSED') { \n      shouldChange = true; \n      newStatus = 'ENABLED'; \n    } else if (!isSale && status === 'ENABLED') { \n      shouldChange = true; \n      newStatus = 'PAUSED'; \n    }\n  } else {\n    if (isSale && status === 'ENABLED') { \n      shouldChange = true; \n      newStatus = 'PAUSED'; \n    } else if (!isSale && status === 'PAUSED') { \n      shouldChange = true; \n      newStatus = 'ENABLED'; \n    }\n  }\n  \n  if (shouldChange) {\n    console.log(`  ${isSale ? '🔥' : '📦'} ${name}: ${status} → ${newStatus}`);\n    changed++;\n    operations.push({\n      update: { resourceName, status: newStatus },\n      updateMask: 'status'\n    });\n  } else {\n    skipped++;\n  }\n}\n\nconsole.log(`Summary: ${changed} changes, ${skipped} already correct`);\n\nreturn [{ \n  json: { \n    type: 'demandgen',\n    customerId, \n    accountCountry, \n    operations, \n    changesCount: operations.length, \n    saleFound,\n    standardFound,\n    skippedCount: skipped,\n    dryRun, \n    saleMode, \n    mccId: $json.mccId, \n    developerToken: $json.developerToken \n  } \n}];"
+      },
+      "id": "7b2aed62-8764-440f-8f20-354b8ec06d20",
+      "name": "Process Demand Gen Campaigns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-changes",
+              "leftValue": "={{ $json.changesCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "not-dry",
+              "leftValue": "={{ $json.dryRun }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ee3705c0-6ddf-4419-84f8-3f7849ce55f2",
+      "name": "Check PMax Changes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-changes",
+              "leftValue": "={{ $json.changesCount }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            },
+            {
+              "id": "not-dry",
+              "leftValue": "={{ $json.dryRun }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "18f34686-b242-475d-b8d9-ef67e7b2f395",
+      "name": "Check DemandGen Changes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.customerId }}/assetGroups:mutate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"operations\": {{ JSON.stringify($json.operations) }}\n}",
+        "options": {}
+      },
+      "id": "5a271261-a84f-4435-ba79-f70e18f95067",
+      "name": "Apply PMax Changes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1552,
+        -48
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.customerId }}/campaigns:mutate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"operations\": {{ JSON.stringify($json.operations) }}\n}",
+        "options": {}
+      },
+      "id": "a50ab13f-9fb3-4223-8f73-470f5cae783f",
+      "name": "Apply DemandGen Changes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1552,
+        336
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "={{ $json.dryRun ? '[DRY RUN] Would change ' + $json.changesCount + ' in ' + $json.accountCountry : 'No changes needed for ' + $json.accountCountry }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "4241a17a-8fc8-4025-a6ec-fe9e6f8bacfe",
+      "name": "Log PMax Skip",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1552,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "={{ $json.dryRun ? '[DRY RUN] Would change ' + $json.changesCount + ' in ' + $json.accountCountry : 'No changes needed for ' + $json.accountCountry }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "870f677b-7354-40ca-92e9-bc6ed1dedfb7",
+      "name": "Log DemandGen Skip",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1552,
+        528
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "75bead88-6e86-4faf-944e-63ee2e55669f",
+      "name": "Merge All Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1776,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('\\n🔍 DEBUG: Final Summary Started');\nconst allInputs = $input.all();\nconsole.log('Number of input items received:', allInputs.length);\n\nif (allInputs.length === 0) {\n  console.log('⚠️  ERROR: No input items received!');\n  return { json: { error: 'No input data' } };\n}\n\nconsole.log('\\n🔍 DEBUG: Listing all items:');\nallInputs.forEach((item, idx) => {\n  console.log(`  Item ${idx + 1}: type=${item.json?.type}, country=${item.json?.accountCountry}, changes=${item.json?.changesCount}`);\n});\n\nconst all = allInputs;\nlet pmaxChanges = 0, demandGenChanges = 0, pmaxSkipped = 0, demandGenSkipped = 0;\nlet pmaxSale = 0, pmaxStandard = 0, dgSale = 0, dgStandard = 0;\nconst countries = new Set();\nconst details = [];\n\nconsole.log('\\n🔍 DEBUG: Processing items...');\nfor (const item of all) {\n  const d = item.json;\n  if (!d.type) {\n    console.log('⚠️  Skipping item without type');\n    continue;\n  }\n  \n  countries.add(d.accountCountry);\n  \n  if (d.type === 'pmax') {\n    pmaxChanges += d.changesCount || 0;\n    pmaxSkipped += d.skippedCount || 0;\n    pmaxSale += d.saleFound || 0;\n    pmaxStandard += d.standardFound || 0;\n  } else if (d.type === 'demandgen') {\n    demandGenChanges += d.changesCount || 0;\n    demandGenSkipped += d.skippedCount || 0;\n    dgSale += d.saleFound || 0;\n    dgStandard += d.standardFound || 0;\n  }\n  \n  if (d.changesCount > 0 || d.skippedCount > 0) {\n    details.push({\n      country: d.accountCountry,\n      type: d.type,\n      changes: d.changesCount,\n      skipped: d.skippedCount,\n      saleItems: d.saleFound,\n      standardItems: d.standardFound\n    });\n  }\n}\n\nconsole.log('\\n🔍 DEBUG: Aggregated data:');\nconsole.log(`  Countries: ${countries.size}`);\nconsole.log(`  PMax changes: ${pmaxChanges}, Demand Gen changes: ${demandGenChanges}`);\n\nconst first = all[0]?.json || {};\nconst mode = first.saleMode === 'start' ? '🔥 SALE ACTIVATED' : '✅ SALE ENDED';\nconst dry = first.dryRun !== false;\nconst totalChanges = pmaxChanges + demandGenChanges;\nconst totalSkipped = pmaxSkipped + demandGenSkipped;\n\nconsole.log('\\n╔═══════════════════════════════════════╗');\nconsole.log(`║ ${mode.padEnd(37)} ║`);\nconsole.log('╠═══════════════════════════════════════╣');\nconsole.log(`║ Dry Run: ${(dry ? '✅ YES' : '⚠️  NO').padEnd(28)} ║`);\nconsole.log(`║ Countries: ${countries.size.toString().padEnd(26)} ║`);\nconsole.log(`║ Total Changes: ${totalChanges.toString().padEnd(21)} ║`);\nconsole.log(`║ Total Skipped: ${totalSkipped.toString().padEnd(21)} ║`);\nconsole.log('╠═══════════════════════════════════════╣');\nconsole.log(`║ PMax Asset Groups:                    ║`);\nconsole.log(`║   Changes: ${pmaxChanges.toString().padEnd(27)} ║`);\nconsole.log(`║   Sale: ${pmaxSale} | Standard: ${pmaxStandard}${''.padEnd(15 - pmaxSale.toString().length - pmaxStandard.toString().length)} ║`);\nconsole.log('╠═══════════════════════════════════════╣');\nconsole.log(`║ Demand Gen Campaigns:                 ║`);\nconsole.log(`║   Changes: ${demandGenChanges.toString().padEnd(27)} ║`);\nconsole.log(`║   Sale: ${dgSale} | Standard: ${dgStandard}${''.padEnd(15 - dgSale.toString().length - dgStandard.toString().length)} ║`);\nconsole.log('╚═══════════════════════════════════════╝');\n\nif (details.length > 0) {\n  console.log('\\nDetailed Breakdown:');\n  details.forEach(d => {\n    console.log(`  ${d.country} [${d.type}]: ${d.changes} changes, ${d.skipped} skipped`);\n  });\n}\n\nif (dry) {\n  console.log('\\n⚠️  DRY RUN MODE - No actual changes applied');\n  console.log('Set DRY_RUN=false in Configuration node for production\\n');\n}\n\nconsole.log('\\n✅ Final Summary Complete!');\n\nreturn { \n  json: { \n    mode, \n    dryRun: dry,\n    timing: first.saleMode === 'start' ? 'Saturday 23:00' : 'Monday 23:00',\n    countriesProcessed: countries.size,\n    totalChanges,\n    totalSkipped,\n    pmax: {\n      changes: pmaxChanges,\n      skipped: pmaxSkipped,\n      saleGroups: pmaxSale,\n      standardGroups: pmaxStandard\n    },\n    demandGen: {\n      changes: demandGenChanges,\n      skipped: demandGenSkipped,\n      saleCampaigns: dgSale,\n      standardCampaigns: dgStandard\n    },\n    details,\n    debug: {\n      totalItemsReceived: allInputs.length\n    }\n  } \n};"
+      },
+      "id": "a0e432aa-a64c-4cb9-94ad-7a06fdcaeb1f",
+      "name": "Final Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        976
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Saturday 23:00 - Start Sale": {
+      "main": [
+        [
+          {
+            "node": "Set Mode - Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monday 23:00 - End Sale": {
+      "main": [
+        [
+          {
+            "node": "Set Mode - End",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Mode - Start": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Mode - End": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Get PMax Asset Groups",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Demand Gen Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get PMax Asset Groups": {
+      "main": [
+        [
+          {
+            "node": "Split PMax Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split PMax Results": {
+      "main": [
+        [
+          {
+            "node": "Process PMax Asset Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Demand Gen Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Split Demand Gen Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Demand Gen Results": {
+      "main": [
+        [
+          {
+            "node": "Process Demand Gen Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process PMax Asset Groups": {
+      "main": [
+        [
+          {
+            "node": "Check PMax Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Demand Gen Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Check DemandGen Changes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check PMax Changes": {
+      "main": [
+        [
+          {
+            "node": "Apply PMax Changes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log PMax Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check DemandGen Changes": {
+      "main": [
+        [
+          {
+            "node": "Apply DemandGen Changes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log DemandGen Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply PMax Changes": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply DemandGen Changes": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log PMax Skip": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log DemandGen Skip": {
+      "main": [
+        [
+          {
+            "node": "Merge All Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Results": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Countries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bc3850ab-2048-4b79-8734-65698eea3632",
+  "meta": {
+    "instanceId": "bc276f9587b0c1726c035c19956f52096674b20bdd6b02f601777c451b4ae16b"
+  },
+  "id": "rvxRbeR8MePGxNxB",
+  "tags": [
+    {
+      "createdAt": "2025-11-11T22:59:06.880Z",
+      "updatedAt": "2025-11-11T22:59:06.880Z",
+      "id": "0nBxKJISu34MgsDN",
+      "name": "Automation Snocks"
+    }
+  ]
+}

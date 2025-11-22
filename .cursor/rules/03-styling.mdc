@@ -1,0 +1,122 @@
+---
+description: 
+globs: **/*.css,**/*.scss,components/*.tsx,app/**/*.tsx,styles/*,**/components/**/*.tsx
+alwaysApply: true
+---
+---
+description: Styling guidelines for Tailwind CSS, SCSS, and Apple-inspired design patterns
+globs: **/*.css, **/*.scss, **/*.module.css, **/*.module.scss, **/*.tsx, **/*.jsx
+---
+
+# Styling Guidelines
+
+- Use Tailwind CSS whenever possible; refactor existing code to Tailwind when modifying it
+- Follow Apple design language principles, with a focus on iOS-like user experience
+- Use Lucide icons exclusively
+- Make dropdown menus opaque, not transparent
+- Implement responsive design with a mobile-first approach
+
+## Styling Boundaries
+
+### Centralized Styles (in styles folder)
+- Global theme variables (colors, spacing, typography)
+- Layout systems and grid definitions
+- Animation keyframes and transitions
+- Utility classes used across multiple components
+- Global reset and normalization styles
+
+### Component-Specific Styles
+- Shadcn UI component customizations
+- Complex component-specific animations
+- One-off styling needs that don't warrant global utilities
+- Styles that are tightly coupled to component logic
+
+## Tailwind vs. SCSS Usage
+
+### Use Tailwind for:
+- Component layout and positioning
+- Responsive design implementation
+- Spacing, sizing, and typography
+- Common interactive states (hover, focus)
+- Most UI component styling
+
+### Use SCSS for:
+- Complex animations and transitions
+- Global theme variables that need preprocessing
+- Custom component styles that would be verbose in Tailwind
+- Legacy code maintenance
+
+### Implementation:
+- Start with Tailwind utilities first
+- Extract common patterns to Tailwind components
+- Use SCSS with `@apply` for complex cases only
+- Avoid mixing inline Tailwind and external SCSS for the same component
+
+## Layout and Typography
+- Use Flexbox and Grid utilities effectively
+- Implement proper spacing system
+- Use container queries when appropriate
+- Implement proper responsive breakpoints
+- Use semantic color naming in design
+- Implement proper color contrast for accessibility
+- Configure custom fonts properly
+- Use proper font size and line height utilities
+
+## Component Styling
+- Use shadcn/ui components as the foundation
+- Extend components with consistent styling patterns
+- Keep component variants consistent
+- Implement subtle animations for better UX
+- Use proper transition utilities
+- Always consider accessibility in styling decisions
+
+## Performance
+- Minimize custom CSS
+- Follow class order conventions for readability
+- Implement responsive typography
+- Use proper responsive spacing
+- Optimize for production builds
+
+## Styles Directory Structure
+
+```
+styles/
+├── abstracts
+│   ├── _functions.scss
+│   ├── _mixins.scss
+│   └── _variables.scss
+├── components
+│   ├── _buttons.scss
+│   ├── _cards.scss
+│   └── _inputs.scss
+├── globals.css
+└── layouts
+    ├── _grid.scss
+    ├── _header.scss
+    └── _sidebar.scss
+```
+
+## Current Styling Components
+
+**IMPORTANT: REFACTOR TO TAILWIND + NECESSARY SCSS VIA TAILWIND DIRECTIVES**
+
+1. globals.css - Main stylesheet with Tailwind directives, theme variables, Apple-like component styles
+2. components/_inputs.scss - Form control styles 
+3. components/_buttons.scss - Button styles with various states
+4. components/_cards.scss - Card component styles
+5. layouts/_grid.scss - Responsive grid layouts
+6. layouts/_header.scss - Page header styles
+7. layouts/_sidebar.scss - Sidebar navigation styles
+8. abstracts/_functions.scss - Style calculation utilities
+9. abstracts/_mixins.scss - Reusable style patterns
+10. abstracts/_variables.scss - Global style variables
+11. Apple-inspired UI components - iOS-like cards, buttons, tables, metrics, comparisons
+12. Form components - Apple-styled inputs, selects, labels
+13. Layout components - Containers, grids, responsive spacing
+14. Typography - Apple-like text styles
+15. Chart components - iOS-styled data visualizations
+16. Dialog/modal styles - iOS-like popups with backdrop blur
+17. Dashboard components - Dashboard-specific cards and layouts
+18. Table styles - Comparison and data tables
+19. Animation utilities - Interactive element animations
+20. Dark mode theme - iOS-inspired dark mode 

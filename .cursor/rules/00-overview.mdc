@@ -1,0 +1,187 @@
+---
+description: Overview of the project, technical stack, and golden rules for development
+globs: 
+alwaysApply: true
+---
+
+# Influencer Tool Overview
+
+## Role
+You are an expert developer in **TypeScript, Node.js, Next.js App Router, React, Shadcn UI, Tailwind, Lucide, SCSS**, as well as **Supabase** with RLS, and you follow **Apple-like design language** principles.
+
+## Description
+🍰 This is a tool that helps influencer marketers manage brands, influencers, campaigns, and engagements in a single place.  
+
+The goal is to provide a **one-stop shop**: import data, track KPIs, organize campaigns, and generate insights for negotiations.
+
+### Tech Stack
+- **Supabase**: database, authentication, and RLS policies  
+- **Vercel**: frontend hosting  
+- **Next.js (App Router)**: frontend + API routes  
+- **Tailwind CSS**: styling  
+- **SCSS**: additional custom styling  
+- **Lucide**: icons  
+- **Shadcn UI**: components  
+- **Apple-like design style** for a clean, minimal aesthetic
+
+## Golden Assistant Rules
+- 🍰 **Always start responses with “🍰”**
+- **Minimalism**: change only what’s necessary; implement minimal code for the wanted effect
+- **File size discipline**: keep files under 1000 lines of code
+- **Code Discipline**: keep the code as DRY as possible and reference @database rather than generating your own types each time
+- **Component Strategy**: MAKE SURE you keep the code as DRY as possible meaning you reference components from components/ui - and if we need a new ui component you make it and then reference it so that it can be reused elsewhere in the tool.
+- **Component strategy**:  
+  - Minimize `use client`, `useEffect`, and `setState`  
+  - Prefer **React Server Components (RSC)** whenever possible
+- **Database access**:  
+  - CRUD should go through Supabase with **RLS policies** wherever possible  
+  - Use service-role keys **only** in server routes for admin-only flows
+- **Consistency**: maintain strict naming conventions for files, tables, and components  
+  - Never use `any`  
+- **Validation**:  
+  - Use **Zod + React Hook Form** for forms  
+  - Enforce deduplication & trimming rules client-side before DB insertions
+- **Error Handling**:  
+  - Always log `{ message, code, details, hint }`  
+  - Show user-friendly toasts in client components  
+  - Render empty states instead of crashing pages
+- **Testing & Build**:  
+  - Use “Build” as the reference for campaign KPIs, influencers, and engagements
+  - Always state what percentage you are done with the code changes, based on the task at hand. For example if you've only done 70%, state to the user "70% of Code Change Complete"
+
+## Project Knowledge
+- **Entity focus**: Brands, Influencers, Campaigns, Engagements  
+- **Project switching for local dev**: `ProjectContext` manages DB selection (SNOCKS/BTED/LOCAL).    
+  - Switching triggers auth re-init and project-specific storage keys  
+- **Dev login**: `DevLoginButton` auto-creates a development user for local testing
+- **Information Puller**: We use the viewer table `public.influencer_engagement_overview` as the single read surface for per-engagement KPIs. Overview shows only three KPIs: Influencer Cost (from `engagements.agreed_total_cents`), Revenue (from `influencer_engagement_overview.revenue` with a fallback to `metrics_json.revenue`), and ROAS (from the view or computed as `revenue / cost`). All other KPIs are rendered under the Metrics tab. 
+
+create view public.influencer_engagement_overview as
+with
+  per_metric as (
+    select
+      m.engagement_id,
+      g.metric_name,
+      g.metric_category,
+      g.metric_type,
+      g.unit,
+      g.display_order,
+      case
+        when g.metric_type = any (
+          array[
+            'integer'::text,
+            'decimal'::text,
+            'currency'::text
+          ]
+        ) then sum(
+          case
+            when m.metric_value ~ '^\s*-?\d+(\.\d+)?\s*$'::text then m.metric_value::numeric
+            else null::numeric
+          end
+        )
+        when g.metric_type = 'percentage'::text then avg(
+          case
+            when m.metric_value ~ '^\s*-?\d+(\.\d+)?\s*$'::text then m.metric_value::numeric
+            else null::numeric
+          end
+        )
+        else null::numeric
+      end as numeric_value
+    from
+      engagements_metrics m
+      join engagements_metrics_glossary g on g.id = m.metric_id
+    where
+      g.is_active = true
+    group by
+      m.engagement_id,
+      g.metric_name,
+      g.metric_category,
+      g.metric_type,
+      g.unit,
+      g.display_order
+  ),
+  metrics_flat as (
+    select
+      pm.engagement_id,
+      jsonb_object_agg(
+        pm.metric_name,
+        to_jsonb(pm.numeric_value)
+        order by
+          pm.display_order,
+          pm.metric_name
+      ) filter (
+        where
+          pm.numeric_value is not null
+      ) as metrics_json
+    from
+      per_metric pm
+    group by
+      pm.engagement_id
+  )
+select
+  i.id as influencer_id,
+  i.name as influencer_name,
+  i.niche,
+  e.id as engagement_id,
+  e.brand_id,
+  b.name as brand_name,
+  e.channel_id,
+  c.display_name as channel_name,
+  e.status,
+  e.opened_at,
+  e.closed_at,
+  e.period_year,
+  e.period_month,
+  e.campaign_name,
+  e.agreed_total_cents,
+  e.agreed_currency,
+  COALESCE(mf.metrics_json, '{}'::jsonb) as metrics_json,
+  (mf.metrics_json ->> 'revenue'::text)::numeric as revenue,
+  case
+    when e.agreed_total_cents is not null
+    and e.agreed_total_cents <> 0 then ((mf.metrics_json ->> 'revenue'::text)::numeric) / NULLIF(
+      e.agreed_total_cents::numeric / 100::numeric,
+      0::numeric
+    )
+    else null::numeric
+  end as roas,
+  min(e.opened_at::date) over (
+    partition by
+      i.id
+  ) as influencer_first_coop_date,
+  max(COALESCE(e.closed_at::date, e.opened_at::date)) over (
+    partition by
+      i.id
+  ) as influencer_last_coop_date,
+  (
+    select
+      count(*) as count
+    from
+      engagements e_count
+    where
+      e_count.influencer_id = i.id
+  ) as influencer_collaborations,
+  (
+    select
+      array_remove(array_agg(distinct b2.name), null::text) as array_remove
+    from
+      engagements e2
+      left join brands b2 on b2.id = e2.brand_id
+    where
+      e2.influencer_id = i.id
+  ) as influencer_brands,
+  (
+    select
+      array_remove(array_agg(distinct c2.display_name), null::text) as array_remove
+    from
+      engagements e3
+      left join channels c2 on c2.id = e3.channel_id
+    where
+      e3.influencer_id = i.id
+  ) as influencer_channels
+from
+  influencers i
+  left join engagements e on e.influencer_id = i.id
+  left join brands b on b.id = e.brand_id
+  left join channels c on c.id = e.channel_id
+  left join metrics_flat mf on mf.engagement_id = e.id;

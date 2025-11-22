@@ -1,0 +1,60 @@
+---
+description: 
+globs: app/**/*.tsx,app/**/*.ts,middleware.ts,next.config.js,next.config.mjs
+alwaysApply: false
+---
+---
+description: Next.js best practices and conventions specifically for modern Next.js (v15+) applications
+globs: app/**/*.tsx, app/**/*.ts, pages/**/*.tsx, pages/**/*.ts, middleware.ts, next.config.js, next.config.mjs
+---
+
+# Next.js Best Practices
+
+## Project Structure
+- Use the App Router directory structure
+- Place components in `app` directory into the route folder for route-specific components
+- Place shared components in `components` directory
+- Place utilities and helpers in `lib` directory
+- Use lowercase with dashes for directory names
+- Co-locate related files (components, hooks, types)
+
+## Data Fetching
+- Use Server Components for data fetching whenever possible
+- Implement proper caching strategies with Next.js cache options
+- Use proper revalidation strategies (time-based, on-demand)
+- Implement proper error handling for data fetching
+- Handle loading states appropriately with suspense
+- Structure API routes logically under the app/api directory
+
+## Performance
+- Follow Core Web Vitals best practices (LCP, CLS, FID)
+- Use Image component for automatic image optimization
+- Implement font optimization with next/font
+- Use route groups for code organization without affecting the URL
+- Use shared layouts to minimize re-renders
+- Implement ISR (Incremental Static Regeneration) where appropriate
+- Use proper meta tags for SEO optimization
+
+## Routing
+- Implement proper loading and error UI for routes
+- Use parallel and intercepted routes where appropriate
+- Implement proper not-found and error pages
+- Use proper middleware for authentication or other route protection
+- Keep route handlers clean and focused
+- Use dynamic routes appropriately
+
+## Forms and Validation
+- Use Server Actions for form submission when possible
+- Implement proper client and server validation
+- Use Zod for schema validation
+- Show appropriate loading and error states
+- Implement proper accessibility for forms
+- Use proper CSRF protection
+
+## Deployment
+- Use the proper build configuration
+- Configure proper environment variables
+- Implement proper analytics and monitoring
+- Use proper CI/CD pipelines
+- Configure proper caching headers
+- Set up proper logging for production debugging 

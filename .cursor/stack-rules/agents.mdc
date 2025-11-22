@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+description: Very high level overview of the (idempotent parts of the) app, describing the general purpose of the app. Serving as the place for the agent to maintain important information itself.
+---
+# Overview 
+This project uses Supabase as a backend (mainly database), is hosted on Vercel and uses Github for CI/CD.
+Everything we do has to be covered by vitest unit tests and playwright e2e tests.
+
+## Purpose of the app
+<REPLACE THIS BLOCK WITH AN ACTUAL PURPOSE DESCRIPTION OF THE APP>
+What problem does this app solve? How does it solve it (high level)? What does someone need to know to have a high level overview of what the app does / what it is there for?
+</REPLACE THIS BLOCK WITH AN ACTUAL PURPOSE DESCRIPTION OF THE APP>
+
+## Module Documentation
+More detailed documentation of the modules of the app can be found and should be maintained in `docs/`.
+
+There you will find documentation about the following modules:
+<INSERT OVERVIEW OF DOCUMENTS IN docs/>
+
+## Change Log
+WHAT TO LOG: 
+YOU ALWAY STRONGLY BIAS TOWARDS MAINTAINING THE DOCS INSTEAD OF CREATING CHANGE LOG ENTRIES. THINK ABOUT THE EFFECT THAT A MAJOR CHANGE HAD AND TRY TO REFLECT THIS NEW STATUS QUO IN THE DOCUMENTATION PROPERLY. IF YOU STILL HAVE TO REMEMBER SOMETHING VERY IMPORTANT THAT DOES NOT FIT INTO THE DOCS (E.G. BECAUSE IT IS DEFINITELY NOT ENOUGH TO KNOW THE STATUS QUO, YOU ALSO NEED TO KNOW WHERE WE ARE COMING FROM), THIS IS THE PLACE TO NOTE IT DOWN. YOU ONLY CREATE CHANGE LOGS FOR THE MOST IMPORTANT MILESTONES, THAT ARE IMPORTANT TO REMEMBER ABOUT THE APP AS A WHOLE. AGAIN: YOU MUCH PREFER UPDATING THE DOCS. YOU LOVE KEEPING THEM UP TO DATE. THE CHANGE LOGS ARE SUPPOSED TO HELP YOU (THE AGENT) LOOK OUT FOR IMPORTANT IMPLICATIONS OF OUR CHANGES WHEN FURTHER DEVELOPING THE APP.
+
+The format for these entries is:
+[YYYY-MM-DD]: 
+- What: [What changed]. 
+- Why remember: [Why it is crucial to remember that we changed from a to b]. 
+
+Example:
+2025-09-05: 
+- What: Switched from user-level resource access to organization memberships (with the organization being able to access resources).
+- Why remember: We need to look out for lingering misalignments: resource access needs to be fully handled via membership of an organization everywhere.
+
+<INSERT MAJOR MILESTONE CHANGE LOG FROM HERE>
+
+
+## Free Area
+This area is for you, the agent, to document things that you find absolutely critical to document / persist -- but do not find covered by existing targets as `docs/` or the sections above. If you choose to add a section here, prominently notify the user about it. Explain why you add it and how information will be added here for maximum efficiency / effectivity. Likely, with confirmation by the user, this then can become a permanent section for the future, if it makes sense.
+

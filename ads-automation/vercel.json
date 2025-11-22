@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/toggle-sale?mode=start&dryRun=false",
+      "schedule": "0 23 * * 6"
+    },
+    {
+      "path": "/api/toggle-sale?mode=end&dryRun=false",
+      "schedule": "0 23 * * 1"
+    }
+  ]
+}
+

@@ -1,0 +1,26 @@
+---
+description: How to commit and push code to Github and write PRs. And how to deploy to Vercel
+alwaysApply: false
+---
+## Github instructions
+- There is one `staging` branch and one `production` branch we use for deployment.
+
+### Commit Instructions
+- BEFORE YOU COMMMIT you always run a `git diff <base>..<head>` to understand what has been changed
+- IF UNCLEAR WHAT TO COMMIT you as the user if only the changes done by you or all changes should be commited.
+- YOU ALWAYS ASK FOR PERMISSION TO COMMIT.
+- BEFORE YOU COMMIT YOU ALWAYS UPDATE THE MODULE DOCUMENTATION IN `docs/` TO REFLECT THE RECENT CHANGES IN THEIR RELEVANCE TO THE FUNCTIONALITY OF THE APP AS A WHOLE. If the current state of the code is already correctly documented, you do nothing.
+- Find descriptive commit messages highlighting the most important changes, as these will be used for the pr title and description. Use the format <fix|feat(of_what):> <problem_description+solution_description|added_functionality_description>
+- Always run `pnpm lint` and `pnpm test` before committing.
+
+### Push and PR Instructions
+- ALWAYS run pnpm run build before pushing the code to see if everything builds well
+- Before pushing code, gather needed info with `git fetch --all --prune && git log --oneline --no-decorate --reverse origin/staging..HEAD && git diff --stat origin/staging..HEAD`
+- Push the code and create a PR into the `staging` branch
+- PR Title format: <Milestone 1> | <Milestone 2> (etc.)
+- The PR body/description should cover the titles `What`, `Why` (being the impact) and `How` with bullet points for each. Use markdown formatting and emojis where appropriate. You can optionally add a [Notes] section.
+- For the PR body, use `PR_BODY.md` at root: Overwrite it's content and use gh pr --body-file PR_BODY.md
+- Merges into `staging` and into `production` will trigger deployments on vercel
+    - We never push to `staging` or `production` directly! 
+    - Staging will be deployed via PRs from our working branch into `staging`.
+    - Production will only be deployed by manual PRs from `staging` into `production` from the user via the Github Web GUI (as soon as staging has been thoroughly tested).

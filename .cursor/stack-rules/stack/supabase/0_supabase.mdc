@@ -1,0 +1,105 @@
+---
+description: Whenever we work with Supabase, this document has to be consulted.
+alwaysApply: false
+---
+## Supabase instructions
+ - Organizational model: Prefer an organization layer when applicable (multi-tenant). Users are members of organizations; data is scoped per organization. For testing, create a dedicated testing organization and users. Test users must not be able to write or mutate production data of other users or organizations.
+ - Strict RLS: Enable Row Level Security on all tables exposed to the client. Every tenant-scoped table must include `organization_id uuid not null` referencing `organizations(id)` with an index. Client reads only under RLS; all writes via server (service_role on the server only).
+ - Org membership enforcement: Policies must ensure the requesting user is a member of the row's `organization_id` via `organization_members`.
+ - Testing: E2E uses a dedicated org and users; tests must never access data across orgs.
+
+ - RLS policy template (example for a tenant table `projects`):
+   ```sql
+   -- Pre-req: organization_members(user_id uuid, organization_id uuid) contains memberships
+   alter table public.projects enable row level security;
+
+   create policy "projects_select_org_members"
+     on public.projects for select
+     using (
+       exists (
+         select 1 from public.organization_members m
+         where m.organization_id = projects.organization_id
+           and m.user_id = auth.uid()
+       )
+     );
+
+   create policy "projects_modify_org_members"
+     on public.projects for all
+     using (
+       exists (
+         select 1 from public.organization_members m
+         where m.organization_id = projects.organization_id
+           and m.user_id = auth.uid()
+       )
+     ) with check (
+       exists (
+         select 1 from public.organization_members m
+         where m.organization_id = projects.organization_id
+           and m.user_id = auth.uid()
+       )
+     );
+   ```
+
+  - **Supabase types generation**
+  - Whenever we change the data schema: Regenerate `src/types/db/db.ts` from the Supabase API using the project ref (see project-knowledge for the ref):
+    - Replace <PROJECT_REF> if not auto-discovered from envs.
+    - Recommended command:
+      ```bash
+      supabase gen types typescript --project-id <PROJECT_REF> --schema public > src/types/db/db.ts
+      ```
+
+- use `pnpm run db:query` to query the database whenever you need to see data in it -- e.g. when investigating a current problem
+
+## Retry Logic and Error Handling
+
+**All critical Supabase queries MUST use retry logic** to handle transient infrastructure failures (network timeouts, gateway errors, connection loss).
+
+### When to Retry
+- **MUST retry**: State-determination queries (deduplication checks, execution state verification)
+- **SHOULD retry**: Read operations (SELECT queries)
+- **DO NOT retry**: Write operations by default (INSERT/UPDATE/DELETE may have partial success)
+
+### Retriable vs Non-Retriable Errors
+**Retriable** (network/infrastructure):
+- "Network connection lost"
+- "gateway error"
+- Connection timeouts
+- 5xx HTTP status codes
+- "ECONNRESET", "ETIMEDOUT", "ENOTFOUND"
+
+**Non-Retriable** (application/auth):
+- 4xx HTTP status codes (bad request, unauthorized, not found)
+- Authentication/authorization failures
+- Schema validation errors
+- RLS policy violations
+
+### Implementation Pattern
+Use `retrySupabaseQuery()` utility from `@/lib/supabase/retry-utils`:
+
+```typescript
+import { retrySupabaseQuery } from '@/lib/supabase/retry-utils';
+
+// Critical state check - MUST retry
+const hasExecuted = await retrySupabaseQuery(
+  () => supabase
+    .from('optimization_history')
+    .select('id')
+    .eq('rule_id', ruleId)
+    .limit(1),
+  { 
+    maxAttempts: 3, 
+    operationName: 'check_rule_execution_state' 
+  }
+);
+```
+
+### Retry Configuration
+- **Max attempts**: 3 for reads, 1 for writes (no retry)
+- **Backoff**: Exponential (100ms, 200ms, 400ms)
+- **Jitter**: ±25% randomization to prevent thundering herd
+
+### Error Handling Flow
+1. Attempt query
+2. If retriable error → wait with exponential backoff → retry
+3. If non-retriable error OR max attempts reached → throw error
+4. **Never return incorrect state** (e.g., claiming "not executed" when query failed)
