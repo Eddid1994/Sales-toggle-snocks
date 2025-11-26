@@ -30,30 +30,37 @@ interface AccountResult {
 export const dynamic = 'force-dynamic'; // Ensure it's not cached
 
 // Define specific targets based on the CSV provided
-const SALE_TARGETS = [
+interface PMaxTarget {
+  campaign: string;
+  assetGroup: string;
+}
+
+const SALE_PMAX_TARGETS: PMaxTarget[] = [
   // DE/AT PMax
-  'Sales Events Invisibles',
-  'Sales Event Ankle',
-  'Sales Event Business-Socken',
-  'Sales Event High Waist Leggings',
-  'Sales Event Tennissocken',
+  { campaign: '[Performance Max]_Generic_DE_[Socken][Sneaker Socken]', assetGroup: 'Sales Events Invisibles' },
+  { campaign: '[Performance Max]_Generic_DE_[Socken][Sneaker Socken]', assetGroup: 'Sales Event Ankle' },
+  { campaign: '[Performance Max]_Generic_DE_[Socken][Business Socken]', assetGroup: 'Sales Event Business-Socken' },
+  { campaign: '[Performance Max]_Generic_DE_[Damen][Leggings]', assetGroup: 'Sales Event High Waist Leggings' },
+  { campaign: '[Performance Max]_Generic_DE_[Socken][Tennissocken]', assetGroup: 'Sales Event Tennissocken' },
+  
   // CH PMax
-  'SALE Boxershorts - Full Build',
-  'Sale Event - Leggings',
+  { campaign: 'SN_Performance Max_CH_UND_Boxershorts', assetGroup: 'SALE Boxershorts - Full Build' },
+  { campaign: 'SN_Performance Max_CH_UND_Boxershorts_Long', assetGroup: 'SALE Boxershorts - Full Build' },
+  
   // FR, IT, PL PMax
-  'Sale BFCM25',
+  { campaign: 'FR_Performance Max | Sales [Generic]', assetGroup: '[Sale BFCM25]' },
+  { campaign: 'IT_Performance Max | Sales [Generic]', assetGroup: '[Sale BFCM25]' },
+  { campaign: 'PL_Performance Max | Sales [Generic]', assetGroup: '[Sale BFCM25]' },
+  
   // DE/AT PMax (OceansApart)
-  'Sale Event - Sport Sets'
+  { campaign: 'OA_Performance Max_DE_AT_Sets', assetGroup: 'Sale Event - Sport Sets' },
+  { campaign: 'OA_Performance Max_CH_[Leggings]', assetGroup: 'Sale Event - Leggings' }
 ];
 
-const NON_SALE_TARGETS = [
-  // DE/AT PMax - Evergreen counterparts
-  '[Socken][Sneaker Socken]', // Implicitly targeted by NOT being in the sale list if we flip logic?
-  // Better to be explicit if possible, but the request says "asset group name off saturday 23:00" is "- (no evergreen full assets on)" for most.
-  // EXCEPT for OceansApart DE AT: "[Sport Sets] non-sale"
-  // and OceansApart CH: "[Leggings] non-sale"
-  '[Sport Sets] non-sale',
-  '[Leggings] non-sale'
+const NON_SALE_PMAX_TARGETS: PMaxTarget[] = [
+  // DE/AT PMax (OceansApart)
+  { campaign: 'OA_Performance Max_DE_AT_Sets', assetGroup: '[Sport Sets] non-sale' },
+  { campaign: 'OA_Performance Max_CH_[Leggings]', assetGroup: '[Leggings] non-sale' }
 ];
 
 // Demand Gen Campaigns to toggle
@@ -125,26 +132,27 @@ export async function GET(request: Request) {
       for (const row of pmaxRows) {
         const ag = row.assetGroup;
         const name = ag.name;
+        const campaignName = row.campaign.name;
         const status = ag.status; // 'ENABLED' or 'PAUSED'
         
-        // Logic based on CSV Targets
-        const isSaleAsset = SALE_TARGETS.some(target => name === target || name.includes(target));
-        const isNonSaleTarget = NON_SALE_TARGETS.some(target => name === target || name.includes(target));
+        // Logic based on CSV Targets - EXACT MATCH on Campaign AND Asset Group
+        const isSaleAsset = SALE_PMAX_TARGETS.some(t => 
+          t.campaign === campaignName && t.assetGroup === name
+        );
+        
+        const isNonSaleTarget = NON_SALE_PMAX_TARGETS.some(t => 
+          t.campaign === campaignName && t.assetGroup === name
+        );
 
         let newStatus = '';
         let shouldChange = false;
 
         if (mode === 'start') {
-          // START SALE: Enable Sale Assets, Pause Specific Non-Sale Assets (if any defined)
+          // START SALE: Enable Sale Assets, Pause Specific Non-Sale Assets
           if (isSaleAsset && status === 'PAUSED') {
             shouldChange = true;
             newStatus = 'ENABLED';
           } else if (isNonSaleTarget && status === 'ENABLED') {
-             // Only pause specific non-sale targets defined in the CSV (like [Sport Sets] non-sale)
-             // The CSV says "- (no evergreen full assets on)" for most, implying we don't touch others?
-             // OR does it mean we should pause EVERYTHING else? 
-             // The prompt says: "It's important that just these ones are changing"
-             // So we only touch items explicitly matched.
             shouldChange = true;
             newStatus = 'PAUSED';
           }

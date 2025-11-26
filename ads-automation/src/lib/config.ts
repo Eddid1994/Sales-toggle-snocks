@@ -9,7 +9,8 @@ export const ACCOUNTS: Account[] = [
   { id: '1593605425', country: 'PL', name: 'Poland' },
   { id: '7052478378', country: 'FR', name: 'France' },
   { id: '4570652903', country: 'IT', name: 'Italy' },
-  { id: '7585673823', country: 'NL', name: 'Netherlands' }
+  { id: '7585673823', country: 'NL', name: 'Netherlands' },
+  { id: '9911532742', country: 'CH', name: 'Switzerland' }
 ];
 
 export const MCC_ID = process.env.GOOGLE_MCC_ID || '3963045378';

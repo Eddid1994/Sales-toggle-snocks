@@ -1,0 +1,640 @@
+{
+  "name": "Simple SBA - Today vs Yesterday",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "166a2460-7bc6-48a9-b55e-755a06feb235",
+      "name": "Schedule Every 3 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2096,
+        208
+      ],
+      "notes": "Runs every 3 hours to check performance"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "country",
+              "name": "country",
+              "value": "DE",
+              "type": "string"
+            },
+            {
+              "id": "account-id",
+              "name": "accountId",
+              "value": "6863838107",
+              "type": "string"
+            },
+            {
+              "id": "mcc-id",
+              "name": "mccId",
+              "value": "3963045378",
+              "type": "string"
+            },
+            {
+              "id": "dev-token",
+              "name": "developerToken",
+              "value": "93VIU4ehzkRJ4tXBqdiHeg",
+              "type": "string"
+            },
+            {
+              "id": "campaign-filters",
+              "name": "campaignFilters",
+              "value": "={{ [\n  { name: 'Search_Herren', contains: 'Herren_Socken_Sneaker', enabled: true },\n  { name: 'Search_Damen', contains: 'Damen_Socken_Sneaker', enabled: true },\n  { name: 'Search_Generic', contains: 'SO_Socken_Sneaker_Sport', enabled: true },\n  { name: 'Search_Socks', contains: 'SO_Socks_Sneaker', enabled: true },\n  { name: 'PMax_Generic', contains: 'Performance Max]_Generic_DE', enabled: true },\n  { name: 'Shopping_Eigenschutz', contains: 'Shopping]_Standard_DE_Eigenschutz', enabled: true }\n] }}",
+              "type": "array"
+            },
+            {
+              "id": "min-clicks",
+              "name": "minClicksRequired",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "min-change",
+              "name": "minChangePercent",
+              "value": 5,
+              "type": "number"
+            },
+            {
+              "id": "max-adjustment",
+              "name": "maxAdjustmentPercent",
+              "value": 500,
+              "type": "number"
+            },
+            {
+              "id": "dry-run",
+              "name": "dryRun",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "258387f8-71bb-4bc0-821d-3a353419de4f",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1872,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate today and yesterday dates\nconst now = new Date();\nconst today = new Date(now.getFullYear(), now.getMonth(), now.getDate());\nconst todayStr = today.toISOString().split('T')[0];\n\nconst yesterday = new Date(today);\nyesterday.setDate(yesterday.getDate() - 1);\nconst yesterdayStr = yesterday.toISOString().split('T')[0];\n\n// Calculate end of today for SBA\nconst endOfToday = new Date(today);\nendOfToday.setHours(23, 59, 59);\nconst endOfTodayStr = endOfToday.toISOString().replace('T', ' ').split('.')[0];\n\n// Start time is now\nconst startTimeStr = now.toISOString().replace('T', ' ').split('.')[0];\n\nreturn [{\n  json: {\n    ...($input.first().json),\n    todayDate: todayStr,\n    yesterdayDate: yesterdayStr,\n    adjustmentStartDateTime: startTimeStr,\n    adjustmentEndDateTime: endOfTodayStr\n  }\n}];"
+      },
+      "id": "c0772e29-e3cb-40ba-bd21-cb22a512e197",
+      "name": "Prepare Dates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.accountId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, campaign.name, campaign.status FROM campaign WHERE campaign.status = 'ENABLED'\"\n}",
+        "options": {}
+      },
+      "id": "3ddc0b9c-1705-42be-a2d0-da8589dc7c85",
+      "name": "Get All Campaigns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1424,
+        208
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter campaigns based on filters\nconst campaigns = $input.first().json.results || [];\nconst filters = $('Prepare Dates').item.json.campaignFilters;\nconst configData = $('Prepare Dates').item.json;\n\nconst filteredCampaigns = [];\n\nfor (const filter of filters) {\n  if (!filter.enabled) continue;\n  \n  for (const result of campaigns) {\n    const campaignName = result.campaign.name;\n    \n    if (campaignName.includes(filter.contains)) {\n      filteredCampaigns.push({\n        json: {\n          campaignId: result.campaign.id,\n          campaignName: campaignName,\n          filterType: filter.name,\n          ...configData\n        }\n      });\n      break; // Only match once per filter\n    }\n  }\n}\n\nif (filteredCampaigns.length === 0) {\n  return [{\n    json: {\n      error: 'No campaigns found matching filters',\n      country: configData.country\n    }\n  }];\n}\n\nreturn filteredCampaigns;"
+      },
+      "id": "5859e4f0-a154-400e-9baa-184da5c3ee23",
+      "name": "Filter Campaigns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1200,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.accountId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, metrics.conversions, metrics.clicks FROM campaign WHERE campaign.id = {{ $json.campaignId }} AND segments.date = '{{ $json.todayDate }}'\"\n}",
+        "options": {}
+      },
+      "id": "e79bd95b-dace-43fc-8a12-f6258dcb47ce",
+      "name": "Get Today Performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -976,
+        208
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $('Filter Campaigns').item.json.accountId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Filter Campaigns').item.json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Filter Campaigns').item.json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, metrics.conversions, metrics.clicks FROM campaign WHERE campaign.id = {{ $('Filter Campaigns').item.json.campaignId }} AND segments.date = '{{ $('Filter Campaigns').item.json.yesterdayDate }}'\"\n}",
+        "options": {}
+      },
+      "id": "2c475ff3-3b4f-4017-b620-0f019b7c977c",
+      "name": "Get Yesterday Performance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -752,
+        208
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple comparison: Today vs Yesterday\nconst todayData = $('Get Today Performance').first().json.results?.[0] || {};\nconst yesterdayData = $('Get Yesterday Performance').first().json.results?.[0] || {};\nconst campaignData = $('Filter Campaigns').item.json;\n\n// TODAY's metrics\nconst todayConversions = parseFloat(todayData.metrics?.conversions || 0);\nconst todayClicks = parseFloat(todayData.metrics?.clicks || 0);\nconst todayConvRate = todayClicks > 0 ? todayConversions / todayClicks : 0;\n\n// YESTERDAY's metrics\nconst yesterdayConversions = parseFloat(yesterdayData.metrics?.conversions || 0);\nconst yesterdayClicks = parseFloat(yesterdayData.metrics?.clicks || 0);\nconst yesterdayConvRate = yesterdayClicks > 0 ? yesterdayConversions / yesterdayClicks : 0;\n\n// Minimum clicks check\nconst minClicks = campaignData.minClicksRequired;\nif (todayClicks < minClicks || yesterdayClicks < minClicks) {\n  return [{\n    json: {\n      ...campaignData,\n      skipReason: 'INSUFFICIENT_DATA',\n      todayClicks: todayClicks,\n      yesterdayClicks: yesterdayClicks,\n      minRequired: minClicks,\n      shouldApply: false\n    }\n  }];\n}\n\n// Calculate percentage difference\nconst convRateChange = yesterdayConvRate > 0 \n  ? ((todayConvRate - yesterdayConvRate) / yesterdayConvRate) * 100 \n  : 0;\n\nconst absChange = Math.abs(convRateChange);\nconst minChangeRequired = campaignData.minChangePercent;\n\n// Check if change is meaningful\nif (absChange < minChangeRequired) {\n  return [{\n    json: {\n      ...campaignData,\n      skipReason: 'CHANGE_TOO_SMALL',\n      todayConvRate: (todayConvRate * 100).toFixed(2),\n      yesterdayConvRate: (yesterdayConvRate * 100).toFixed(2),\n      convRateChange: convRateChange.toFixed(2),\n      minChangeRequired: minChangeRequired,\n      shouldApply: false\n    }\n  }];\n}\n\n// Cap adjustment at max\nlet adjustmentPercent = convRateChange;\nconst maxAdjustment = campaignData.maxAdjustmentPercent;\nadjustmentPercent = Math.max(-maxAdjustment, Math.min(maxAdjustment, adjustmentPercent));\n\n// Calculate conversion rate modifier for Google Ads API\nconst conversionRateModifier = 1 + (adjustmentPercent / 100);\n\nreturn [{\n  json: {\n    ...campaignData,\n    shouldApply: true,\n    todayConvRate: (todayConvRate * 100).toFixed(2),\n    yesterdayConvRate: (yesterdayConvRate * 100).toFixed(2),\n    convRateChange: convRateChange.toFixed(2),\n    adjustmentPercent: Math.round(adjustmentPercent),\n    conversionRateModifier: conversionRateModifier.toFixed(3),\n    todayClicks: todayClicks,\n    todayConversions: todayConversions,\n    yesterdayClicks: yesterdayClicks,\n    yesterdayConversions: yesterdayConversions\n  }\n}];"
+      },
+      "id": "48ad1900-b090-480e-a74e-4f259a22e75c",
+      "name": "Calculate Adjustment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "should-apply",
+              "leftValue": "={{ $json.shouldApply }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7d4043df-29a2-4b0d-87c9-dedf303b82a4",
+      "name": "Should Apply?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.accountId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT bidding_seasonality_adjustment.resource_name, bidding_seasonality_adjustment.name FROM bidding_seasonality_adjustment WHERE bidding_seasonality_adjustment.name = 'Auto SBA {{ $json.country }} - {{ $json.campaignName }}'\"\n}",
+        "options": {}
+      },
+      "id": "aa775da7-2655-4c1e-ab6a-1f6eccb9529e",
+      "name": "Search Existing SBA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        112
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const searchResult = $input.first().json;\nconst campaignData = $('Should Apply?').first().json;\n\nconst existingSBA = searchResult.results?.[0]?.biddingSeasonalityAdjustment?.resourceName || null;\n\nreturn [{\n  json: {\n    ...campaignData,\n    existingSBA: existingSBA,\n    shouldUpdate: !!existingSBA,\n    sbaName: `Auto SBA ${campaignData.country} - ${campaignData.campaignName}`\n  }\n}];"
+      },
+      "id": "7f9a2a21-89ae-4545-8884-7b68cd724643",
+      "name": "Check SBA Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "dry-run-check",
+              "leftValue": "={{ $json.dryRun }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "797dc41f-b736-4d35-9686-0cdf53a74bf6",
+      "name": "Dry Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        368,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    ...data,\n    dryRunResult: true,\n    message: data.shouldUpdate ? 'DRY RUN - Would UPDATE existing SBA' : 'DRY RUN - Would CREATE new SBA',\n    action: data.shouldUpdate ? 'UPDATE' : 'CREATE',\n    sbaResourceName: data.existingSBA || 'N/A - would be created',\n    wouldAdjustBy: `${data.adjustmentPercent > 0 ? '+' : ''}${data.adjustmentPercent}%`,\n    duration: `${data.adjustmentStartDateTime} to ${data.adjustmentEndDateTime}`\n  }\n}];"
+      },
+      "id": "5a51208e-bcd0-4701-bcf7-2c95f3792291",
+      "name": "Dry Run Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.accountId }}/biddingSeasonalityAdjustments:mutate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.shouldUpdate ? \n  JSON.stringify({\n    \"operations\": [{\n      \"updateMask\": \"conversionRateModifier,startDateTime,endDateTime,description\",\n      \"update\": {\n        \"resourceName\": $json.existingSBA,\n        \"conversionRateModifier\": parseFloat($json.conversionRateModifier),\n        \"startDateTime\": $json.adjustmentStartDateTime,\n        \"endDateTime\": $json.adjustmentEndDateTime,\n        \"description\": \"Today vs Yesterday: \" + $json.convRateChange + \"% change - Updated \" + $now\n      }\n    }]\n  })\n  :\n  JSON.stringify({\n    \"operations\": [{\n      \"create\": {\n        \"name\": $json.sbaName,\n        \"scope\": \"CAMPAIGN\",\n        \"campaigns\": [\"customers/\" + $json.accountId + \"/campaigns/\" + $json.campaignId],\n        \"startDateTime\": $json.adjustmentStartDateTime,\n        \"endDateTime\": $json.adjustmentEndDateTime,\n        \"conversionRateModifier\": parseFloat($json.conversionRateModifier),\n        \"description\": \"Today vs Yesterday: \" + $json.convRateChange + \"% change\"\n      }\n    }]\n  })\n}}",
+        "options": {}
+      },
+      "id": "c867f6d2-9281-4aa6-bcf2-53e2439998ae",
+      "name": "UPDATE or CREATE SBA",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        592,
+        208
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      },
+      "notes": "Updates existing SBA if found, otherwise creates new one"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nreturn [{\n  json: {\n    ...data,\n    wasSkipped: true,\n    message: `SKIPPED - ${data.skipReason}`\n  }\n}];"
+      },
+      "id": "929d84a5-b73d-45d3-8819-f14d443911bb",
+      "name": "Log Skipped",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\n\nconst applied = allItems.filter(i => !i.json.dryRunResult && !i.json.wasSkipped && i.json.shouldApply);\nconst dryRun = allItems.filter(i => i.json.dryRunResult);\nconst skipped = allItems.filter(i => i.json.wasSkipped);\n\nconst updated = allItems.filter(i => i.json.shouldUpdate && !i.json.dryRunResult && !i.json.wasSkipped);\nconst created = allItems.filter(i => !i.json.shouldUpdate && !i.json.dryRunResult && !i.json.wasSkipped && i.json.shouldApply);\n\nconst summary = {\n  timestamp: new Date().toISOString(),\n  isDryRun: dryRun.length > 0,\n  totalProcessed: allItems.length,\n  adjustmentsApplied: applied.length,\n  updated: updated.length,\n  created: created.length,\n  skipped: skipped.length\n};\n\nconst details = allItems.map(item => ({\n  campaignName: item.json.campaignName,\n  todayConvRate: item.json.todayConvRate,\n  yesterdayConvRate: item.json.yesterdayConvRate,\n  change: item.json.convRateChange,\n  adjustmentApplied: item.json.adjustmentPercent,\n  action: item.json.wasSkipped ? 'SKIPPED' : \n          item.json.dryRunResult ? (item.json.shouldUpdate ? 'DRY RUN - UPDATE' : 'DRY RUN - CREATE') :\n          item.json.shouldUpdate ? 'UPDATED' : 'CREATED',\n  sbaName: item.json.sbaName || 'N/A',\n  status: item.json.wasSkipped ? `SKIPPED - ${item.json.skipReason}` : \n          item.json.dryRunResult ? 'DRY RUN' : 'APPLIED',\n  duration: item.json.adjustmentStartDateTime && item.json.adjustmentEndDateTime ?\n    `${item.json.adjustmentStartDateTime} to ${item.json.adjustmentEndDateTime}` : null\n}));\n\nreturn [{\n  json: {\n    summary: summary,\n    details: details\n  }\n}];"
+      },
+      "id": "0604f8af-996d-40a7-80b4-e607ff79d7ba",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        816,
+        208
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Every 3 Hours": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Prepare Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Dates": {
+      "main": [
+        [
+          {
+            "node": "Get All Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Filter Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Get Today Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Today Performance": {
+      "main": [
+        [
+          {
+            "node": "Get Yesterday Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Yesterday Performance": {
+      "main": [
+        [
+          {
+            "node": "Calculate Adjustment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Adjustment": {
+      "main": [
+        [
+          {
+            "node": "Should Apply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Apply?": {
+      "main": [
+        [
+          {
+            "node": "Search Existing SBA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Existing SBA": {
+      "main": [
+        [
+          {
+            "node": "Check SBA Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check SBA Exists": {
+      "main": [
+        [
+          {
+            "node": "Dry Run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dry Run?": {
+      "main": [
+        [
+          {
+            "node": "Dry Run Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "UPDATE or CREATE SBA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dry Run Output": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPDATE or CREATE SBA": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Skipped": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "2ef32042-675e-4fff-8cc8-55fe03d188a1",
+  "meta": {
+    "instanceId": "bc276f9587b0c1726c035c19956f52096674b20bdd6b02f601777c451b4ae16b"
+  },
+  "id": "SLMs5vgkkNW28TJs",
+  "tags": []
+}

@@ -1,0 +1,569 @@
+{
+  "name": "Google Ads Budget Auto-Increase 80% 20% up",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9,11,13,15,17,19,21 * * *"
+            }
+          ]
+        }
+      },
+      "id": "b0547ef4-840c-4f18-ac3c-3e257879dddc",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1904,
+        144
+      ],
+      "notes": "Runs 6 times daily: 9:00, 11:00, 13:00, 15:00, 17:00, 19:00, 21:00"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "test-mode",
+              "name": "testMode",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "test-country",
+              "name": "testCountry",
+              "value": "FR",
+              "type": "string"
+            },
+            {
+              "id": "countries-001",
+              "name": "countries",
+              "value": "={{ [\n  { country: 'PL', accountId: '1593605425' },\n  { country: 'FR', accountId: '7052478378' },\n  { country: 'IT', accountId: '4570652903' },\n  { country: 'NL', accountId: '7585673823' },\n  { country: 'DE', accountId: '6863838107' },\n  { country: 'CH', accountId: '9911532742' }\n] }}",
+              "type": "array"
+            },
+            {
+              "id": "mcc-id",
+              "name": "mccId",
+              "value": "3963045378",
+              "type": "string"
+            },
+            {
+              "id": "dev-token",
+              "name": "developerToken",
+              "value": "93VIU4ehzkRJ4tXBqdiHeg",
+              "type": "string"
+            },
+            {
+              "id": "budget-threshold",
+              "name": "budgetThresholdPercent",
+              "value": 80,
+              "type": "number"
+            },
+            {
+              "id": "budget-increase",
+              "name": "budgetIncreasePercent",
+              "value": 20,
+              "type": "number"
+            },
+            {
+              "id": "dry-run",
+              "name": "dryRun",
+              "value": false,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "359e0d02-f700-4c96-9c58-01569a406462",
+      "name": "Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1680,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter countries based on test mode\nconst testMode = $('Configuration').item.json.testMode;\nconst testCountry = $('Configuration').item.json.testCountry;\nconst allCountries = $('Configuration').item.json.countries;\n\nconsole.log('=== FILTER TEST COUNTRY DEBUG ===');\nconsole.log('testMode:', testMode);\nconsole.log('testCountry:', testCountry);\nconsole.log('allCountries:', JSON.stringify(allCountries));\n\nif (testMode === true) {\n  // Only process the test country\n  const filtered = allCountries.filter(c => c.country === testCountry);\n  \n  console.log('Filtered countries:', JSON.stringify(filtered));\n  \n  if (filtered.length === 0) {\n    throw new Error(`Test country '${testCountry}' not found in countries list`);\n  }\n  \n  const result = {\n    ...($('Configuration').item.json),\n    countries: filtered,\n    isTestMode: true\n  };\n  \n  console.log('Returning FILTERED result with', filtered.length, 'country(ies)');\n  return [{ json: result }];\n} else {\n  // Process all countries\n  console.log('Returning ALL countries');\n  return [{\n    json: {\n      ...($('Configuration').item.json),\n      isTestMode: false\n    }\n  }];\n}"
+      },
+      "id": "f7822bc3-2b7d-4e74-b933-68f9320f94a1",
+      "name": "Filter Test Country",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1456,
+        144
+      ],
+      "notes": "Filters to test country when testMode is enabled"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "countries",
+        "options": {}
+      },
+      "id": "c67d311d-f3d6-4aad-b2df-a6a186664b7f",
+      "name": "Split Countries",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -1232,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.accountId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $('Configuration').item.json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $('Configuration').item.json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, campaign.name, campaign.status, campaign_budget.resource_name, campaign_budget.amount_micros FROM campaign WHERE campaign.status = 'ENABLED'\"\n}",
+        "options": {}
+      },
+      "id": "fed81722-4fd2-4271-a30e-57d1d6638884",
+      "name": "Get Active Campaigns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1008,
+        144
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract campaigns from results and prepare for processing\nconst campaigns = $input.first().json.results || [];\nconst countryData = $('Split Countries').item.json;\nconst config = $('Filter Test Country').item.json;\n\nconst preparedCampaigns = campaigns.map(result => ({\n  json: {\n    campaignId: result.campaign.id,\n    campaignName: result.campaign.name,\n    budgetResourceName: result.campaignBudget.resourceName,\n    budgetAmountMicros: result.campaignBudget.amountMicros,\n    dailyBudget: parseFloat(result.campaignBudget.amountMicros) / 1000000,\n    customerId: countryData.accountId,\n    country: countryData.country,\n    mccId: config.mccId,\n    developerToken: config.developerToken,\n    budgetThreshold: config.budgetThresholdPercent,\n    budgetIncrease: config.budgetIncreasePercent,\n    dryRun: config.dryRun\n  }\n}));\n\nreturn preparedCampaigns;"
+      },
+      "id": "c32b6a63-248c-4d5d-b994-cc5d48b2f99c",
+      "name": "Prepare Campaign Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.customerId }}/googleAds:search",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"SELECT campaign.id, metrics.cost_micros FROM campaign WHERE campaign.id = {{ $json.campaignId }} AND segments.date = '{{ $now.format('yyyy-MM-dd') }}'\"\n}",
+        "options": {}
+      },
+      "id": "8f0d41d4-0128-47d9-803a-2fd5c16d182f",
+      "name": "Get Today's Spend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -560,
+        144
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine campaign data with spend data\n// Process ALL items from Get Today's Spend\n\nconst allSpendItems = $input.all();\nconst allCampaignItems = $('Prepare Campaign Data').all();\nconst results = [];\n\nfor (const spendItem of allSpendItems) {\n  const spendResponse = spendItem.json;\n  const spendData = spendResponse.results?.[0] || {};\n  const campaignIdFromSpend = spendData.campaign?.id;\n  const costMicros = spendData.metrics?.costMicros || 0;\n  \n  if (!campaignIdFromSpend) {\n    continue; // Skip if no campaign ID\n  }\n  \n  // Find matching campaign data\n  let campaignData = null;\n  for (const item of allCampaignItems) {\n    if (item.json.campaignId === campaignIdFromSpend) {\n      campaignData = item.json;\n      break;\n    }\n  }\n  \n  if (campaignData) {\n    results.push({\n      json: {\n        ...campaignData,\n        costMicros: costMicros\n      }\n    });\n  }\n}\n\nreturn results;"
+      },
+      "id": "92dbd030-9ef4-4e8c-bd6a-09de2a9e4181",
+      "name": "Combine Campaign & Spend",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        144
+      ],
+      "notes": "Merges campaign data with spend data from API"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate budget utilization for each campaign\n// Process ALL combined items\n\nconst allItems = $input.all();\nconst results = [];\n\nfor (const item of allItems) {\n  const data = item.json;\n  \n  const dailyBudget = data.dailyBudget;\n  const todaySpendMicros = parseFloat(data.costMicros || 0);\n  const todaySpend = todaySpendMicros / 1000000;\n  const utilizationPercent = dailyBudget > 0 ? (todaySpend / dailyBudget) * 100 : 0;\n  \n  // Check if budget is at threshold or above\n  const threshold = data.budgetThreshold;\n  const needsIncrease = utilizationPercent >= threshold;\n  \n  let newBudget = dailyBudget;\n  let newBudgetMicros = data.budgetAmountMicros;\n  \n  if (needsIncrease) {\n    const increasePercent = data.budgetIncrease;\n    newBudget = dailyBudget * (1 + increasePercent / 100);\n    newBudgetMicros = Math.round(newBudget * 1000000);\n  }\n  \n  results.push({\n    json: {\n      campaignId: data.campaignId,\n      campaignName: data.campaignName,\n      country: data.country,\n      customerId: data.customerId,\n      mccId: data.mccId,\n      developerToken: data.developerToken,\n      currentBudget: dailyBudget.toFixed(2),\n      todaySpend: todaySpend.toFixed(2),\n      utilizationPercent: utilizationPercent.toFixed(2),\n      threshold: threshold,\n      newBudget: newBudget.toFixed(2),\n      newBudgetMicros: newBudgetMicros,\n      budgetResourceName: data.budgetResourceName,\n      needsIncrease: needsIncrease,\n      dryRun: data.dryRun\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "d6cae90b-a16a-4e55-9059-eee5c6708041",
+      "name": "Calculate Budget Usage",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-increase-check",
+              "leftValue": "={{ $json.needsIncrease }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c890b28b-a0e3-48de-b4b6-77a465afd0cb",
+      "name": "Needs Budget Increase?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        112,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log campaigns that don't need budget increase\n// Process all skipped campaigns\n\nconst allItems = $input.all();\nconst results = [];\n\nfor (const item of allItems) {\n  const data = item.json;\n  \n  results.push({\n    json: {\n      campaignId: data.campaignId,\n      campaignName: data.campaignName,\n      country: data.country,\n      currentBudget: data.currentBudget,\n      todaySpend: data.todaySpend,\n      utilizationPercent: data.utilizationPercent,\n      threshold: data.threshold,\n      skipped: true,\n      reason: `Utilization ${data.utilizationPercent}% is below threshold ${data.threshold}%`,\n      message: 'SKIPPED - Budget utilization below threshold'\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "af105c06-696a-4658-a14a-a2acc288ab23",
+      "name": "Log Skipped Campaigns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        336
+      ],
+      "notes": "Logs campaigns that don't need budget increases"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "dry-run-check",
+              "leftValue": "={{ $json.dryRun }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "990890d1-d31b-4c97-a1a1-8b7d5d756ac8",
+      "name": "Check Dry Run",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        336,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate budget increase\nconst data = $input.first().json;\n\nreturn [{\n  json: {\n    ...data,\n    dryRunResult: true,\n    message: 'DRY RUN - No actual budget update performed',\n    wouldIncreaseFrom: `$${data.currentBudget}`,\n    wouldIncreaseTo: `$${data.newBudget}`,\n    utilizationPercent: `${data.utilizationPercent}%`\n  }\n}];"
+      },
+      "id": "0fe9bfe9-3661-445d-9a2e-c3b4703babf6",
+      "name": "Dry Run Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://googleads.googleapis.com/v20/customers/{{ $json.customerId }}/campaignBudgets:mutate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleAdsOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "developer-token",
+              "value": "={{ $json.developerToken }}"
+            },
+            {
+              "name": "login-customer-id",
+              "value": "={{ $json.mccId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"operations\": [{\n    \"update\": {\n      \"resourceName\": \"{{ $json.budgetResourceName }}\",\n      \"amountMicros\": {{ $json.newBudgetMicros }}\n    },\n    \"updateMask\": \"amountMicros\"\n  }]\n}",
+        "options": {}
+      },
+      "id": "2df71027-0616-41b4-978f-c302e86e1e15",
+      "name": "Increase Campaign Budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        -48
+      ],
+      "credentials": {
+        "googleAdsOAuth2Api": {
+          "id": "xGTeELD8S8rl3SQD",
+          "name": "Google Ads account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create summary report\nconst allItems = $input.all();\n\n// Separate increased and skipped campaigns\nconst increasedCampaigns = [];\nconst skippedCampaigns = [];\n\nallItems.forEach(item => {\n  if (item.json.skipped === true) {\n    skippedCampaigns.push(item);\n  } else {\n    increasedCampaigns.push(item);\n  }\n});\n\n// Group increased campaigns by country\nconst groupedIncreased = {};\nincreasedCampaigns.forEach(item => {\n  const country = item.json.country;\n  if (!groupedIncreased[country]) {\n    groupedIncreased[country] = {\n      country: country,\n      campaigns: []\n    };\n  }\n  \n  groupedIncreased[country].campaigns.push({\n    campaignName: item.json.campaignName,\n    oldBudget: item.json.currentBudget,\n    newBudget: item.json.newBudget,\n    utilizationPercent: item.json.utilizationPercent,\n    todaySpend: item.json.todaySpend,\n    action: item.json.dryRunResult ? 'DRY RUN' : 'UPDATED'\n  });\n});\n\n// Group skipped campaigns by country\nconst groupedSkipped = {};\nskippedCampaigns.forEach(item => {\n  const country = item.json.country;\n  if (!groupedSkipped[country]) {\n    groupedSkipped[country] = {\n      country: country,\n      campaigns: []\n    };\n  }\n  \n  groupedSkipped[country].campaigns.push({\n    campaignName: item.json.campaignName,\n    currentBudget: item.json.currentBudget,\n    utilizationPercent: item.json.utilizationPercent,\n    todaySpend: item.json.todaySpend,\n    threshold: item.json.threshold,\n    reason: item.json.reason\n  });\n});\n\nconst totalUpdated = increasedCampaigns.filter(item => !item.json.dryRunResult).length;\nconst totalDryRun = increasedCampaigns.filter(item => item.json.dryRunResult).length;\nconst totalSkipped = skippedCampaigns.length;\n\nreturn [{\n  json: {\n    success: true,\n    timestamp: new Date().toISOString(),\n    isDryRun: allItems[0]?.json?.dryRun || false,\n    summary: {\n      totalCampaigns: allItems.length,\n      budgetIncreased: totalUpdated,\n      dryRun: totalDryRun,\n      skipped: totalSkipped\n    },\n    increasedCampaigns: Object.values(groupedIncreased),\n    skippedCampaigns: Object.values(groupedSkipped)\n  }\n}];"
+      },
+      "id": "2a5216a6-76f9-42d1-8818-3f638b983c10",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        144
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configuration": {
+      "main": [
+        [
+          {
+            "node": "Filter Test Country",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Test Country": {
+      "main": [
+        [
+          {
+            "node": "Split Countries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Countries": {
+      "main": [
+        [
+          {
+            "node": "Get Active Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Prepare Campaign Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Campaign Data": {
+      "main": [
+        [
+          {
+            "node": "Get Today's Spend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Today's Spend": {
+      "main": [
+        [
+          {
+            "node": "Combine Campaign & Spend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Campaign & Spend": {
+      "main": [
+        [
+          {
+            "node": "Calculate Budget Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Budget Usage": {
+      "main": [
+        [
+          {
+            "node": "Needs Budget Increase?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Budget Increase?": {
+      "main": [
+        [
+          {
+            "node": "Check Dry Run",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Skipped Campaigns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Skipped Campaigns": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Dry Run": {
+      "main": [
+        [
+          {
+            "node": "Dry Run Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Increase Campaign Budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dry Run Output": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Increase Campaign Budget": {
+      "main": [
+        [
+          {
+            "node": "Create Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8488fa35-151c-41aa-8dcc-3dead07b5100",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bc276f9587b0c1726c035c19956f52096674b20bdd6b02f601777c451b4ae16b"
+  },
+  "id": "sjfEUcPzxWuVYesk",
+  "tags": [
+    {
+      "createdAt": "2025-11-21T09:44:22.919Z",
+      "updatedAt": "2025-11-21T09:44:22.919Z",
+      "id": "ZQ4o4a5lEDkK8Hle",
+      "name": "ready for testing"
+    }
+  ]
+}

@@ -71,7 +71,15 @@ export async function searchGoogleAds(customerId: string, query: string) {
   }
 }
 
-export async function mutateGoogleAds(customerId: string, resource: 'assetGroups' | 'campaigns', operations: any[]) {
+export type MutateResource = 
+  | 'assetGroups' 
+  | 'campaigns' 
+  | 'campaignBudgets'
+  | 'feedItems' 
+  | 'customerCustomizers' 
+  | 'biddingSeasonalityAdjustments';
+
+export async function mutateGoogleAds(customerId: string, resource: MutateResource, operations: any[]) {
   if (operations.length === 0) return;
 
   const accessToken = await getAccessToken();
@@ -96,4 +104,3 @@ export async function mutateGoogleAds(customerId: string, resource: 'assetGroups
     throw error;
   }
 }
-
