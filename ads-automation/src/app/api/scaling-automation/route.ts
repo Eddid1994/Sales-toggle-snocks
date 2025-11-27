@@ -23,6 +23,7 @@ interface CampaignResult {
   campaignName: string;
   currentBudget: number;
   todaySpend: number;
+  todayRoas: number;
   utilizationPercent: number;
   newBudget: number;
   increaseAmount: number;
@@ -49,9 +50,11 @@ export async function GET(request: Request) {
   // Parse configuration with defaults
   const thresholdParam = searchParams.get('threshold');
   const increaseParam = searchParams.get('increase');
+  const roasParam = searchParams.get('roasThreshold');
   
   const budgetThresholdPercent = thresholdParam ? parseFloat(thresholdParam) : 80;
   const budgetIncreasePercent = increaseParam ? parseFloat(increaseParam) : 20;
+  const roasThreshold = roasParam ? parseFloat(roasParam) : 0;
 
   // Validate configuration
   if (isNaN(budgetThresholdPercent) || budgetThresholdPercent <= 0) {
@@ -59,6 +62,9 @@ export async function GET(request: Request) {
   }
   if (isNaN(budgetIncreasePercent) || budgetIncreasePercent <= 0) {
     return NextResponse.json({ error: 'Invalid budget increase percentage' }, { status: 400 });
+  }
+  if (isNaN(roasThreshold) || roasThreshold < 0) {
+    return NextResponse.json({ error: 'Invalid ROAS threshold' }, { status: 400 });
   }
 
   // Security check
@@ -103,12 +109,13 @@ export async function GET(request: Request) {
         dailyBudget: parseInt(row.campaignBudget.amountMicros, 10) / 1_000_000
       }));
 
-      // 2. Get Today's Spend for all enabled campaigns
+      // 2. Get Today's Spend and ROAS for all enabled campaigns
       // We use segments.date DURING TODAY to get today's data
       const spendQuery = `
         SELECT 
           campaign.id, 
-          metrics.cost_micros 
+          metrics.cost_micros,
+          metrics.conversions_value
         FROM campaign 
         WHERE 
           campaign.status = 'ENABLED' 
@@ -116,18 +123,22 @@ export async function GET(request: Request) {
       `;
 
       const spendRows = await searchGoogleAds(account.id, spendQuery);
-      const spendMap = new Map<string, number>();
+      const spendMap = new Map<string, { costMicros: number, conversionValue: number }>();
       
       spendRows.forEach((row: any) => {
-        spendMap.set(row.campaign.id, parseInt(row.metrics.costMicros, 10));
+        spendMap.set(row.campaign.id, {
+          costMicros: parseInt(row.metrics.costMicros, 10),
+          conversionValue: parseFloat(row.metrics.conversionsValue) || 0
+        });
       });
 
       // 3. Analyze and Prepare Mutations
       const operations: any[] = [];
 
       for (const campaign of campaigns) {
-        const costMicros = spendMap.get(campaign.id) || 0;
-        const todaySpend = costMicros / 1_000_000;
+        const metrics = spendMap.get(campaign.id) || { costMicros: 0, conversionValue: 0 };
+        const todaySpend = metrics.costMicros / 1_000_000;
+        const todayRoas = todaySpend > 0 ? metrics.conversionValue / todaySpend : 0;
         
         // Avoid division by zero
         if (campaign.dailyBudget <= 0) {
@@ -137,6 +148,7 @@ export async function GET(request: Request) {
             campaignName: campaign.name,
             currentBudget: campaign.dailyBudget,
             todaySpend,
+            todayRoas,
             utilizationPercent: 0,
             newBudget: campaign.dailyBudget,
             increaseAmount: 0,
@@ -149,7 +161,8 @@ export async function GET(request: Request) {
 
         const utilizationPercent = (todaySpend / campaign.dailyBudget) * 100;
 
-        if (utilizationPercent >= budgetThresholdPercent) {
+        // Check both utilization AND ROAS threshold
+        if (utilizationPercent >= budgetThresholdPercent && todayRoas >= roasThreshold) {
           const newBudget = campaign.dailyBudget * (1 + budgetIncreasePercent / 100);
           const newBudgetMicros = Math.round(newBudget * 1_000_000);
           
@@ -159,6 +172,7 @@ export async function GET(request: Request) {
             campaignName: campaign.name,
             currentBudget: campaign.dailyBudget,
             todaySpend,
+            todayRoas,
             utilizationPercent,
             newBudget,
             increaseAmount: newBudget - campaign.dailyBudget,
@@ -175,17 +189,25 @@ export async function GET(request: Request) {
           });
         } else {
           accountResult.skippedCampaigns++;
+          let reason = '';
+          if (utilizationPercent < budgetThresholdPercent) {
+            reason = `Utilization ${utilizationPercent.toFixed(1)}% < ${budgetThresholdPercent}%`;
+          } else if (todayRoas < roasThreshold) {
+            reason = `ROAS ${todayRoas.toFixed(2)} < ${roasThreshold}`;
+          }
+
           accountResult.details.push({
             campaignId: campaign.id,
             campaignName: campaign.name,
             currentBudget: campaign.dailyBudget,
             todaySpend,
+            todayRoas,
             utilizationPercent,
             newBudget: campaign.dailyBudget,
             increaseAmount: 0,
             isDryRun: dryRun,
             action: 'SKIPPED',
-            reason: `Utilization ${utilizationPercent.toFixed(1)}% < ${budgetThresholdPercent}%`
+            reason
           });
         }
       }
@@ -213,6 +235,7 @@ export async function GET(request: Request) {
     config: {
       budgetThresholdPercent,
       budgetIncreasePercent,
+      roasThreshold,
       dryRun
     },
     summary: {

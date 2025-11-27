@@ -127,6 +127,22 @@ export const COUNTRY_DATA: Record<string, CountryData> = {
       saleTitleLast: "Nur noch heute - Bis zu 50%",
       saleDescLast: "Nur noch heute - bis zu 50% Sale auf deine liebsten Snocks-Basics aus Bio-Baumwolle"
     }
+  },
+  OCEANS_APART_DE_AT: {
+    accountName: "OCEANS_APART_DE_AT",
+    customerId: "1247881370",
+    mccId: "3963045378",
+    developerToken: "93VIU4ehzkRJ4tXBqdiHeg",
+    texts: {
+      normalTitle: "Oceans Apart",
+      normalDesc: "Oceans Apart - Activewear for you.",
+      saleTitle: "Oceans Apart - Bis zu 50% reduziert",
+      saleDesc: "Oceans Apart - bis zu 50% Sale auf deine liebsten Styles.",
+      saleTitle2Days: "Nur noch 2 Tage - Bis zu 50%",
+      saleDesc2Days: "Nur noch 2 Tage - bis zu 50% Sale auf deine liebsten Oceans Apart Styles",
+      saleTitleLast: "Nur noch heute - Bis zu 50%",
+      saleDescLast: "Nur noch heute - bis zu 50% Sale auf deine liebsten Oceans Apart Styles"
+    }
   }
 };
 

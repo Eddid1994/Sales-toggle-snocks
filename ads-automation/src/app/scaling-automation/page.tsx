@@ -7,6 +7,7 @@ interface CampaignResult {
   campaignName: string;
   currentBudget: number;
   todaySpend: number;
+  todayRoas: number;
   utilizationPercent: number;
   newBudget: number;
   increaseAmount: number;
@@ -30,6 +31,7 @@ interface ApiResponse {
   config: {
     budgetThresholdPercent: number;
     budgetIncreasePercent: number;
+    roasThreshold: number;
     dryRun: boolean;
   };
   summary: {
@@ -45,6 +47,7 @@ export default function ScalingAutomationPage() {
   const [apiKey, setApiKey] = useState('');
   const [threshold, setThreshold] = useState(80);
   const [increase, setIncrease] = useState(20);
+  const [roasThreshold, setRoasThreshold] = useState(0);
   
   const [loading, setLoading] = useState(false);
   const [previewData, setPreviewData] = useState<ApiResponse | null>(null);
@@ -66,6 +69,7 @@ export default function ScalingAutomationPage() {
         dryRun: dryRun.toString(),
         threshold: threshold.toString(),
         increase: increase.toString(),
+        roasThreshold: roasThreshold.toString(),
         key: apiKey
       });
       
@@ -161,6 +165,23 @@ export default function ScalingAutomationPage() {
                     <span className="absolute right-4 top-3.5 text-gray-400">%</span>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">Amount to add to the current daily budget</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Min. ROAS Threshold
+                </label>
+                <div className="relative">
+                    <input 
+                        type="number" 
+                        value={roasThreshold}
+                        onChange={(e) => setRoasThreshold(Number(e.target.value))}
+                        step="0.1"
+                        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black focus:border-transparent outline-none transition bg-gray-50"
+                    />
+                    <span className="absolute right-4 top-3.5 text-gray-400">x</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">Required ROAS (Conv. value / Cost)</p>
               </div>
             </div>
 
@@ -281,10 +302,11 @@ function ResultList({ details, showSkipped }: { details: AccountResult[], showSk
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="text-xs text-gray-500 flex gap-3">
-                                            <span>Spend: <span className="font-mono text-gray-700">€{campaign.todaySpend.toFixed(2)}</span></span>
-                                            <span>Utilization: <span className={`font-mono ${campaign.utilizationPercent >= 80 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{campaign.utilizationPercent.toFixed(1)}%</span></span>
-                                        </div>
+                                    <div className="text-xs text-gray-500 flex gap-3">
+                                        <span>Spend: <span className="font-mono text-gray-700">€{campaign.todaySpend.toFixed(2)}</span></span>
+                                        <span>ROAS: <span className={`font-mono ${campaign.todayRoas >= 0 ? 'text-blue-600 font-bold' : 'text-gray-700'}`}>{campaign.todayRoas.toFixed(2)}</span></span>
+                                        <span>Utilization: <span className={`font-mono ${campaign.utilizationPercent >= 80 ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{campaign.utilizationPercent.toFixed(1)}%</span></span>
+                                    </div>
                                     </div>
                                     <div className="text-right">
                                         <div className="flex items-center gap-2 text-sm">
@@ -305,6 +327,7 @@ function ResultList({ details, showSkipped }: { details: AccountResult[], showSk
         </div>
     );
 }
+
 
 
 

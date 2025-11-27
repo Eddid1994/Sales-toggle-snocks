@@ -128,22 +128,24 @@ async function processAccount(account: { id: string; country: string; name: stri
     for (const campaign of filteredCampaigns) {
       try {
         // Get Today's Performance
-        const todayQuery = `SELECT campaign.id, metrics.conversions, metrics.clicks, metrics.conversions_from_interactions_rate FROM campaign WHERE campaign.id = ${campaign.id} AND segments.date = '${todayStr}'`;
+        const todayQuery = `SELECT campaign.id, metrics.conversions_by_conversion_date, metrics.clicks FROM campaign WHERE campaign.id = ${campaign.id} AND segments.date = '${todayStr}'`;
         const todayRows = await searchGoogleAds(account.id, todayQuery);
-        const todayData = todayRows[0]?.metrics || { conversions: 0, clicks: 0, conversionsFromInteractionsRate: 0 };
+        const todayData = todayRows[0]?.metrics || { conversionsByConversionDate: 0, clicks: 0 };
         
         // Get Yesterday's Performance
-        const yesterdayQuery = `SELECT campaign.id, metrics.conversions, metrics.clicks, metrics.conversions_from_interactions_rate FROM campaign WHERE campaign.id = ${campaign.id} AND segments.date = '${yesterdayStr}'`;
+        const yesterdayQuery = `SELECT campaign.id, metrics.conversions_by_conversion_date, metrics.clicks FROM campaign WHERE campaign.id = ${campaign.id} AND segments.date = '${yesterdayStr}'`;
         const yesterdayRows = await searchGoogleAds(account.id, yesterdayQuery);
-        const yesterdayData = yesterdayRows[0]?.metrics || { conversions: 0, clicks: 0, conversionsFromInteractionsRate: 0 };
+        const yesterdayData = yesterdayRows[0]?.metrics || { conversionsByConversionDate: 0, clicks: 0 };
         
         const todayClicks = Number(todayData.clicks);
         const yesterdayClicks = Number(yesterdayData.clicks);
         
-        // Use API-provided conversion rate (handle camelCase from JSON response)
-        // Fallback to 0 if undefined
-        const todayConvRate = Number(todayData.conversionsFromInteractionsRate || todayData.conversions_from_interactions_rate || 0);
-        const yesterdayConvRate = Number(yesterdayData.conversionsFromInteractionsRate || yesterdayData.conversions_from_interactions_rate || 0);
+        // Calculate Conversion Rate by Time: Conversions (by conv. time) / Clicks
+        const todayConversions = Number(todayData.conversionsByConversionDate || todayData.conversions_by_conversion_date || 0);
+        const yesterdayConversions = Number(yesterdayData.conversionsByConversionDate || yesterdayData.conversions_by_conversion_date || 0);
+
+        const todayConvRate = todayClicks > 0 ? (todayConversions / todayClicks) : 0;
+        const yesterdayConvRate = yesterdayClicks > 0 ? (yesterdayConversions / yesterdayClicks) : 0;
 
         // Calculate Change early for reporting
         const convRateChange = yesterdayConvRate > 0 

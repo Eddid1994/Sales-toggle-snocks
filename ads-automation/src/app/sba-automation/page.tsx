@@ -124,7 +124,7 @@ export default function SBAAutomationPage() {
               <span>🍰</span> Seasonal Bid Adjustments (SBA)
             </h1>
             <p className="text-gray-500 mt-1">
-              Momentum Bidding: Boost bids when Today's Conversion Rate beats Yesterday's by &gt;5%.
+              Momentum Bidding: Boost bids when Today's Conversion Rate (by time) beats Yesterday's by &gt;5%.
             </p>
           </div>
           <a 
@@ -255,8 +255,8 @@ export default function SBAAutomationPage() {
                         <thead className="text-xs text-gray-500 uppercase bg-gray-50">
                           <tr>
                             <th className="px-4 py-3 rounded-l-lg">Campaign</th>
-                            <th className="px-4 py-3">Yesterday CR</th>
-                            <th className="px-4 py-3">Today CR</th>
+                            <th className="px-4 py-3">Yesterday CR (Time)</th>
+                            <th className="px-4 py-3">Today CR (Time)</th>
                             <th className="px-4 py-3">Change</th>
                             <th className="px-4 py-3">Action</th>
                             <th className="px-4 py-3 rounded-r-lg">Reason/Status</th>

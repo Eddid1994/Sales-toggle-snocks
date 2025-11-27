@@ -12,6 +12,7 @@ export async function GET(request: Request) {
   
   // Mappings: JSON string of { [countryKey]: { headline: string, desc: string } }
   const mappingsJson = searchParams.get('mappings');
+  const countriesParam = searchParams.get('countries'); // Comma-separated list of country keys
   let mappings: Record<string, { headline: string, desc: string }> = {};
   
   try {
@@ -37,8 +38,13 @@ export async function GET(request: Request) {
   const results = [];
   const errors = [];
 
-  // Process all countries
-  const countryKeys = Object.keys(COUNTRY_DATA);
+  // Process selected countries (or all if none specified)
+  let countryKeys = Object.keys(COUNTRY_DATA);
+  
+  if (countriesParam !== null) {
+    const selectedKeys = countriesParam.split(',').filter(k => k.trim() !== '');
+    countryKeys = countryKeys.filter(k => selectedKeys.includes(k));
+  }
 
   // We run them in parallel
   await Promise.all(countryKeys.map(async (key) => {

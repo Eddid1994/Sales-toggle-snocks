@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 import { Loader2, AlertCircle, Key, ArrowRight, Search, Settings2, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,7 @@ const COUNTRIES = [
   { key: 'SNOCKS_FR', name: 'France' },
   { key: 'SNOCKS_IT', name: 'Italy' },
   { key: 'SNOCKS_PL', name: 'Poland' },
+  { key: 'OCEANS_APART_DE_AT', name: 'Oceans Apart (DE/AT)' },
 ];
 
 interface Attribute {
@@ -41,6 +43,7 @@ export default function BusinessDataPage() {
   
   // Mappings state
   const [mappings, setMappings] = useState<Record<string, CountryMapping>>({});
+  const [selectedCountries, setSelectedCountries] = useState<Set<string>>(new Set(COUNTRIES.map(c => c.key)));
   
   const [previewData, setPreviewData] = useState<any>(null);
   const [finalResult, setFinalResult] = useState<any>(null);
@@ -119,6 +122,16 @@ export default function BusinessDataPage() {
     }));
   };
 
+  const toggleCountrySelection = (key: string) => {
+    const newSet = new Set(selectedCountries);
+    if (newSet.has(key)) {
+      newSet.delete(key);
+    } else {
+      newSet.add(key);
+    }
+    setSelectedCountries(newSet);
+  };
+
   const getPayloadMappings = () => {
     const payload: Record<string, { headline: string, desc: string }> = {};
     Object.entries(mappings).forEach(([key, data]) => {
@@ -128,6 +141,10 @@ export default function BusinessDataPage() {
   };
 
   const handlePreview = async () => {
+    if (selectedCountries.size === 0) {
+      setError("Please select at least one account to preview.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setPreviewData(null);
@@ -138,7 +155,8 @@ export default function BusinessDataPage() {
         phase,
         dryRun: 'true',
         key: authKey,
-        mappings: getPayloadMappings()
+        mappings: getPayloadMappings(),
+        countries: Array.from(selectedCountries).join(',')
       });
       const res = await fetch(`/api/business-data?${params.toString()}`);
       const data = await res.json();
@@ -156,6 +174,10 @@ export default function BusinessDataPage() {
   };
 
   const handleExecute = async () => {
+    if (selectedCountries.size === 0) {
+      setError("Please select at least one account to update.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setFinalResult(null);
@@ -165,7 +187,8 @@ export default function BusinessDataPage() {
         phase,
         dryRun: 'false',
         key: authKey,
-        mappings: getPayloadMappings()
+        mappings: getPayloadMappings(),
+        countries: Array.from(selectedCountries).join(',')
       });
       const res = await fetch(`/api/business-data?${params.toString()}`);
       const data = await res.json();
@@ -253,39 +276,47 @@ export default function BusinessDataPage() {
                     loading: false 
                   };
                   const isExpanded = expandedCountry === country.key;
+                  const isSelected = selectedCountries.has(country.key);
 
                   return (
-                    <div key={country.key} className={`border rounded-xl transition-all ${isExpanded ? 'bg-gray-50 border-gray-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}>
-                      <div 
-                        className="p-4 flex items-center justify-between cursor-pointer"
-                        onClick={() => setExpandedCountry(isExpanded ? null : country.key)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                            {country.key.split('_')[1]}
-                          </div>
-                          <div>
-                            <div className="font-medium text-gray-900">{country.name}</div>
-                            <div className="text-xs text-gray-500 flex items-center gap-2">
-                               {data.loading ? (
-                                 <span className="flex items-center gap-1 text-blue-600"><Loader2 className="h-3 w-3 animate-spin" /> Scanning...</span>
-                               ) : data.error ? (
-                                 <span className="text-red-500">Error scanning attributes</span>
-                               ) : data.availableAttributes.length > 0 ? (
-                                 <span className="text-green-600">{data.availableAttributes.length} attributes found</span>
-                               ) : (
-                                 <span>Default attributes (Scan to fetch)</span>
-                               )}
+                    <div key={country.key} className={`border rounded-xl transition-all ${isExpanded ? 'bg-gray-50 border-gray-300' : 'bg-white border-gray-200 hover:border-gray-300'} ${!isSelected ? 'opacity-60' : ''}`}>
+                      <div className="p-4 flex items-center gap-4">
+                        <Switch 
+                          checked={isSelected}
+                          onCheckedChange={() => toggleCountrySelection(country.key)}
+                        />
+                        
+                        <div 
+                          className="flex-1 flex items-center justify-between cursor-pointer"
+                          onClick={() => setExpandedCountry(isExpanded ? null : country.key)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
+                              {country.key.split('_')[1]}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{country.name}</div>
+                              <div className="text-xs text-gray-500 flex items-center gap-2">
+                                {data.loading ? (
+                                  <span className="flex items-center gap-1 text-blue-600"><Loader2 className="h-3 w-3 animate-spin" /> Scanning...</span>
+                                ) : data.error ? (
+                                  <span className="text-red-500">Error scanning attributes</span>
+                                ) : data.availableAttributes.length > 0 ? (
+                                  <span className="text-green-600">{data.availableAttributes.length} attributes found</span>
+                                ) : (
+                                  <span>Default attributes (Scan to fetch)</span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="text-gray-400">
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          <div className="text-gray-400">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </div>
                         </div>
                       </div>
 
-                      {isExpanded && (
-                        <div className="px-4 pb-4 pt-0 space-y-4 animate-in slide-in-from-top-2">
+                      {isExpanded && isSelected && (
+                        <div className="px-4 pb-4 pt-0 space-y-4 animate-in slide-in-from-top-2 pl-16">
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
                               <Label className="text-xs text-gray-500">Headline Attribute</Label>
